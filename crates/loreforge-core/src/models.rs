@@ -166,6 +166,8 @@ pub struct DashboardMetrics {
     pub canon_draft: i64,
     pub canon_under_review: i64,
     pub canon_deprecated: i64,
+    pub locations_total: i64,
+    pub location_types_in_use: i64,
 }
 
 /// The relationship_type used to link a character to an event they
@@ -308,4 +310,68 @@ pub struct RevisionEntry {
     pub after_json: Option<String>,
     pub changed_at: String,
     pub note: Option<String>,
+}
+
+// ---------------------------------------------------------------------
+// Phase 4: World Explorer (Locations)
+// ---------------------------------------------------------------------
+
+/// A character or event being associated with a location. Lives in the
+/// ordinary `relationships` table (source = character/event entity id,
+/// target = location entity id) -- no new join table, per
+/// design-phase-4-locations.md section 1.
+pub const LOCATED_AT: &str = "located_at";
+
+pub const LOCATION_TYPES: &[&str] = &[
+    "galaxy",
+    "solar_system",
+    "planet",
+    "station",
+    "city",
+    "ship",
+    "building",
+    "room",
+    "other",
+];
+
+/// Full location DTO returned to the frontend: generic entity fields
+/// flattened together with location-specific detail fields, including the
+/// self-referential `parent_location_id` that makes this entity type
+/// hierarchical (unlike every prior phase's flat detail tables).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Location {
+    pub id: String,
+    pub name: String,
+    pub location_type: String,
+    pub description: String,
+    pub parent_location_id: Option<String>,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct NewLocation {
+    pub name: String,
+    pub location_type: Option<String>,
+    pub description: Option<String>,
+    pub parent_location_id: Option<String>,
+}
+
+/// Patch payload for updating a location. `None` means "leave unchanged",
+/// mirroring every prior phase's per-field autosave contract.
+/// `parent_location_id` uses the `Option<Option<String>>` "explicit null"
+/// pattern (like `EventPatch::end_date`) so a client can distinguish "don't
+/// touch the parent" from "move this location to root" (set to `Some(None)`).
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct LocationPatch {
+    pub name: Option<String>,
+    pub location_type: Option<String>,
+    pub description: Option<String>,
+    pub parent_location_id: Option<Option<String>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct LocationFilter {
+    pub search: Option<String>,
+    pub location_type: Option<String>,
 }

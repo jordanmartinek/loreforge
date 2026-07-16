@@ -36,6 +36,13 @@ export const queryKeys = {
   revisions: {
     forEntity: (id: string) => ["revisions", "entity", id] as const,
   },
+  locations: {
+    all: ["locations"] as const,
+    list: (filter: unknown) => ["locations", "list", filter] as const,
+    detail: (id: string) => ["locations", "detail", id] as const,
+    children: (parentId: string | null) => ["locations", "children", parentId] as const,
+    ancestry: (id: string) => ["locations", "ancestry", id] as const,
+  },
   dashboard: {
     metrics: ["dashboard", "metrics"] as const,
   },

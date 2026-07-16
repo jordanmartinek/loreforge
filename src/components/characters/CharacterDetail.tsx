@@ -4,6 +4,7 @@ import { AutosaveField } from "./AutosaveField";
 import { CharacterTimeline } from "./CharacterTimeline";
 import { RelationshipEditor } from "./RelationshipEditor";
 import { RevisionHistoryButton } from "../history/RevisionHistoryPanel";
+import { EntityLocationLinks } from "../locations/EntityLocationLinks";
 import { Select } from "../ui/Select";
 
 interface CharacterDetailProps {
@@ -142,6 +143,10 @@ export function CharacterDetail({ characterId }: CharacterDetailProps) {
 
       <Section title="Timeline">
         <CharacterTimeline characterId={character.id} />
+      </Section>
+
+      <Section title="Location">
+        <EntityLocationLinks entityId={character.id} />
       </Section>
     </div>
   );

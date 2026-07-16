@@ -18,9 +18,13 @@ import type {
   Event,
   EventFilter,
   EventPatch,
+  Location,
+  LocationFilter,
+  LocationPatch,
   NewCanonEntry,
   NewCharacter,
   NewEvent,
+  NewLocation,
   NewRelationship,
   Relationship,
   RelationshipPatch,
@@ -42,6 +46,7 @@ interface MockDb {
   relationships: Relationship[];
   events: Event[];
   canonEntries: CanonEntry[];
+  locations: Location[];
   // A shared, append-only revision log that every entity type below writes
   // to on create/update/delete -- mirrors the real backend's `revisions`
   // table (design-phase-3-canon.md section 3.1), so RevisionHistoryPanel
@@ -51,7 +56,36 @@ interface MockDb {
 }
 
 function seedDb(): MockDb {
-  return { characters: [], relationships: [], events: [], canonEntries: [], revisions: [] };
+  return {
+    characters: [],
+    relationships: [],
+    events: [],
+    canonEntries: [],
+    locations: [],
+    revisions: [],
+  };
+}
+
+/** Mirrors locations::would_create_cycle in loreforge-core: true if setting
+ * `candidateId`'s parent to `newParentId` would make `candidateId` its own
+ * ancestor (i.e. `newParentId` is `candidateId` itself or one of its own
+ * descendants). Walking up from `newParentId`; if we ever reach
+ * `candidateId`, the move would create a cycle. */
+function wouldCreateLocationCycle(candidateId: string, newParentId: string): boolean {
+  if (candidateId === newParentId) return true;
+
+  const seen = new Set<string>();
+  let currentId: string | null = newParentId;
+
+  while (currentId !== null) {
+    if (currentId === candidateId) return true;
+    if (seen.has(currentId)) break; // pre-existing cycle elsewhere; don't loop forever
+    seen.add(currentId);
+    const current = db.locations.find((l) => l.id === currentId);
+    currentId = current?.parent_location_id ?? null;
+  }
+
+  return false;
 }
 
 let revisionCounter = 0;
@@ -380,6 +414,109 @@ export const mockApi = {
       return delay(newestFirst.slice(0, limit));
     },
   },
+  locations: {
+    async list(filter: LocationFilter = {}): Promise<Location[]> {
+      let results = db.locations;
+      if (filter.search?.trim()) {
+        const q = filter.search.trim().toLowerCase();
+        results = results.filter((l) => l.name.toLowerCase().includes(q));
+      }
+      if (filter.location_type) {
+        results = results.filter((l) => l.location_type === filter.location_type);
+      }
+      results = [...results].sort((a, b) => a.name.localeCompare(b.name));
+      return delay(results);
+    },
+    async get(id: string): Promise<Location> {
+      const found = db.locations.find((l) => l.id === id);
+      if (!found) throw new Error(`location ${id} not found`);
+      return delay(found);
+    },
+    async create(input: NewLocation): Promise<Location> {
+      if (!input.name.trim()) throw new Error("location name is required");
+      if (input.parent_location_id) {
+        const parentExists = db.locations.some((l) => l.id === input.parent_location_id);
+        if (!parentExists) throw new Error(`parent location ${input.parent_location_id} not found`);
+      }
+      const location: Location = {
+        id: uuid(),
+        name: input.name,
+        location_type: input.location_type ?? "other",
+        description: input.description ?? "",
+        parent_location_id: input.parent_location_id ?? null,
+        created_at: now(),
+        updated_at: now(),
+      };
+      db.locations.push(location);
+      recordRevision(location.id, "create", null, location);
+      persist();
+      return delay(location);
+    },
+    async update(id: string, patch: LocationPatch): Promise<Location> {
+      const location = db.locations.find((l) => l.id === id);
+      if (!location) throw new Error(`location ${id} not found`);
+
+      if (patch.parent_location_id !== undefined && patch.parent_location_id !== null) {
+        const newParentId = patch.parent_location_id;
+        const parentExists = db.locations.some((l) => l.id === newParentId);
+        if (!parentExists) throw new Error(`parent location ${newParentId} not found`);
+        if (wouldCreateLocationCycle(id, newParentId)) {
+          throw new Error(
+            "cannot move a location to become a child of itself or one of its own descendants",
+          );
+        }
+      }
+
+      const before = { ...location };
+      Object.assign(location, patch, { updated_at: now() });
+      recordRevision(id, "update", before, location);
+      persist();
+      return delay(location);
+    },
+    async delete(id: string): Promise<void> {
+      const before = db.locations.find((l) => l.id === id);
+      if (!before) return delay(undefined);
+
+      // Reparent direct children up one level (to the deleted location's
+      // own parent, or to root) rather than orphaning/cascade-deleting the
+      // subtree -- mirrors locations::delete in loreforge-core (FR3.1).
+      for (const child of db.locations) {
+        if (child.parent_location_id === id) {
+          child.parent_location_id = before.parent_location_id;
+        }
+      }
+
+      db.locations = db.locations.filter((l) => l.id !== id);
+      db.relationships = db.relationships.filter(
+        (r) => r.source_entity_id !== id && r.target_entity_id !== id,
+      );
+      recordRevision(id, "delete", before, null);
+      persist();
+      return delay(undefined);
+    },
+    async listChildren(parentId: string | null): Promise<Location[]> {
+      const results = db.locations
+        .filter((l) => l.parent_location_id === parentId)
+        .sort((a, b) => a.name.localeCompare(b.name));
+      return delay(results);
+    },
+    async getAncestryChain(id: string): Promise<Location[]> {
+      const chain: Location[] = [];
+      const seen = new Set<string>();
+      let currentId = db.locations.find((l) => l.id === id)?.parent_location_id ?? null;
+
+      while (currentId !== null) {
+        if (seen.has(currentId)) break;
+        seen.add(currentId);
+        const parent = db.locations.find((l) => l.id === currentId);
+        if (!parent) break;
+        chain.push(parent);
+        currentId = parent.parent_location_id;
+      }
+
+      return delay(chain);
+    },
+  },
   dashboard: {
     async getMetrics(): Promise<DashboardMetrics> {
       const layersInUse = new Set<string>();
@@ -391,6 +528,7 @@ export const mockApi = {
         const comparableEnd = event.end_date ?? event.start_date;
         if (latest === null || comparableEnd > latest) latest = comparableEnd;
       }
+      const locationTypesInUse = new Set(db.locations.map((l) => l.location_type));
       return delay({
         characters_total: db.characters.length,
         characters_main: db.characters.filter((c) => c.role === "main").length,
@@ -405,6 +543,8 @@ export const mockApi = {
         canon_draft: db.canonEntries.filter((c) => c.status === "draft").length,
         canon_under_review: db.canonEntries.filter((c) => c.status === "under_review").length,
         canon_deprecated: db.canonEntries.filter((c) => c.status === "deprecated").length,
+        locations_total: db.locations.length,
+        location_types_in_use: locationTypesInUse.size,
       });
     },
   },

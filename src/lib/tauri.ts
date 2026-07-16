@@ -15,9 +15,13 @@ import type {
   Event,
   EventFilter,
   EventPatch,
+  Location,
+  LocationFilter,
+  LocationPatch,
   NewCanonEntry,
   NewCharacter,
   NewEvent,
+  NewLocation,
   NewRelationship,
   Relationship,
   RelationshipPatch,
@@ -68,6 +72,20 @@ export const api = {
   revisions: {
     listForEntity: (entityId: string, limit: number = 50) =>
       invoke<RevisionEntry[]>("list_revisions_for_entity", { entityId, limit }),
+  },
+  locations: {
+    list: (filter: LocationFilter = {}) =>
+      invoke<Location[]>("list_locations", { filter }),
+    get: (id: string) => invoke<Location>("get_location", { id }),
+    create: (input: NewLocation) =>
+      invoke<Location>("create_location", { input }),
+    update: (id: string, patch: LocationPatch) =>
+      invoke<Location>("update_location", { id, patch }),
+    delete: (id: string) => invoke<void>("delete_location", { id }),
+    listChildren: (parentId: string | null) =>
+      invoke<Location[]>("list_location_children", { parentId }),
+    getAncestryChain: (id: string) =>
+      invoke<Location[]>("get_location_ancestry_chain", { id }),
   },
   dashboard: {
     getMetrics: () => invoke<DashboardMetrics>("get_dashboard_metrics"),
