@@ -26,10 +26,15 @@ import type {
   NewEvent,
   NewLocation,
   NewRelationship,
+  NewTechnology,
   Relationship,
   RelationshipPatch,
   RevisionEntry,
+  Technology,
+  TechnologyFilter,
+  TechnologyPatch,
 } from "./types";
+import { REQUIRES } from "./types";
 
 function uuid(): string {
   return "id-" + Math.random().toString(36).slice(2) + Date.now().toString(36);
@@ -47,6 +52,7 @@ interface MockDb {
   events: Event[];
   canonEntries: CanonEntry[];
   locations: Location[];
+  technologies: Technology[];
   // A shared, append-only revision log that every entity type below writes
   // to on create/update/delete -- mirrors the real backend's `revisions`
   // table (design-phase-3-canon.md section 3.1), so RevisionHistoryPanel
@@ -62,8 +68,37 @@ function seedDb(): MockDb {
     events: [],
     canonEntries: [],
     locations: [],
+    technologies: [],
     revisions: [],
   };
+}
+
+/** Mirrors technologies::would_create_cycle in loreforge-core: true if
+ * adding a `requires` edge from `dependentId` to `prerequisiteId` would
+ * introduce a cycle anywhere in the technology dependency graph. Unlike
+ * location reparenting (a single-parent chain walk), a technology can have
+ * multiple prerequisites, so this is a bounded graph traversal: starting
+ * from the candidate prerequisite, follow every outgoing `requires` edge;
+ * if the walk ever reaches `dependentId`, the new edge would close a
+ * cycle. */
+function wouldCreateTechnologyCycle(dependentId: string, prerequisiteId: string): boolean {
+  if (dependentId === prerequisiteId) return true;
+
+  const seen = new Set<string>();
+  const frontier: string[] = [prerequisiteId];
+
+  while (frontier.length > 0) {
+    const current = frontier.pop() as string;
+    if (current === dependentId) return true;
+    if (seen.has(current)) continue;
+    seen.add(current);
+    const prereqIds = db.relationships
+      .filter((r) => r.source_entity_id === current && r.relationship_type === REQUIRES)
+      .map((r) => r.target_entity_id);
+    frontier.push(...prereqIds);
+  }
+
+  return false;
 }
 
 /** Mirrors locations::would_create_cycle in loreforge-core: true if setting
@@ -517,6 +552,83 @@ export const mockApi = {
       return delay(chain);
     },
   },
+  technologies: {
+    async list(filter: TechnologyFilter = {}): Promise<Technology[]> {
+      let results = db.technologies;
+      if (filter.search?.trim()) {
+        const q = filter.search.trim().toLowerCase();
+        results = results.filter((t) => t.name.toLowerCase().includes(q));
+      }
+      if (filter.category) {
+        results = results.filter((t) => t.category === filter.category);
+      }
+      results = [...results].sort((a, b) => a.name.localeCompare(b.name));
+      return delay(results);
+    },
+    async get(id: string): Promise<Technology> {
+      const found = db.technologies.find((t) => t.id === id);
+      if (!found) throw new Error(`technology ${id} not found`);
+      return delay(found);
+    },
+    async create(input: NewTechnology): Promise<Technology> {
+      if (!input.name.trim()) throw new Error("technology name is required");
+      const technology: Technology = {
+        id: uuid(),
+        name: input.name,
+        category: input.category ?? "other",
+        description: input.description ?? "",
+        introduced_date: input.introduced_date ?? null,
+        date_precision: input.date_precision ?? "day",
+        created_at: now(),
+        updated_at: now(),
+      };
+      db.technologies.push(technology);
+      recordRevision(technology.id, "create", null, technology);
+      persist();
+      return delay(technology);
+    },
+    async update(id: string, patch: TechnologyPatch): Promise<Technology> {
+      const technology = db.technologies.find((t) => t.id === id);
+      if (!technology) throw new Error(`technology ${id} not found`);
+      const before = { ...technology };
+      Object.assign(technology, patch, { updated_at: now() });
+      recordRevision(id, "update", before, technology);
+      persist();
+      return delay(technology);
+    },
+    async delete(id: string): Promise<void> {
+      const before = db.technologies.find((t) => t.id === id);
+      db.technologies = db.technologies.filter((t) => t.id !== id);
+      db.relationships = db.relationships.filter(
+        (r) => r.source_entity_id !== id && r.target_entity_id !== id,
+      );
+      if (before) recordRevision(id, "delete", before, null);
+      persist();
+      return delay(undefined);
+    },
+    async listPrerequisites(technologyId: string): Promise<Technology[]> {
+      const prereqIds = db.relationships
+        .filter((r) => r.source_entity_id === technologyId && r.relationship_type === REQUIRES)
+        .map((r) => r.target_entity_id);
+      return delay(db.technologies.filter((t) => prereqIds.includes(t.id)));
+    },
+    async listDependents(technologyId: string): Promise<Technology[]> {
+      const dependentIds = db.relationships
+        .filter((r) => r.target_entity_id === technologyId && r.relationship_type === REQUIRES)
+        .map((r) => r.source_entity_id);
+      return delay(db.technologies.filter((t) => dependentIds.includes(t.id)));
+    },
+    async createRequiresEdge(dependentId: string, prerequisiteId: string): Promise<Relationship> {
+      if (wouldCreateTechnologyCycle(dependentId, prerequisiteId)) {
+        throw new Error("this dependency would create a cycle in the technology tree");
+      }
+      return mockApi.relationships.create({
+        source_entity_id: dependentId,
+        target_entity_id: prerequisiteId,
+        relationship_type: REQUIRES,
+      });
+    },
+  },
   dashboard: {
     async getMetrics(): Promise<DashboardMetrics> {
       const layersInUse = new Set<string>();
@@ -529,6 +641,7 @@ export const mockApi = {
         if (latest === null || comparableEnd > latest) latest = comparableEnd;
       }
       const locationTypesInUse = new Set(db.locations.map((l) => l.location_type));
+      const technologyCategoriesInUse = new Set(db.technologies.map((t) => t.category));
       return delay({
         characters_total: db.characters.length,
         characters_main: db.characters.filter((c) => c.role === "main").length,
@@ -545,6 +658,8 @@ export const mockApi = {
         canon_deprecated: db.canonEntries.filter((c) => c.status === "deprecated").length,
         locations_total: db.locations.length,
         location_types_in_use: locationTypesInUse.size,
+        technologies_total: db.technologies.length,
+        technology_categories_in_use: technologyCategoriesInUse.size,
       });
     },
   },

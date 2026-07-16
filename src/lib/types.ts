@@ -113,6 +113,8 @@ export interface DashboardMetrics {
   canon_deprecated: number;
   locations_total: number;
   location_types_in_use: number;
+  technologies_total: number;
+  technology_categories_in_use: number;
 }
 
 export type SaveStatus = "saved" | "saving" | "offline";
@@ -316,4 +318,77 @@ export interface LocationPatch {
 export interface LocationFilter {
   search?: string;
   location_type?: string;
+}
+
+// ---------------------------------------------------------------------
+// Phase 5: Technology Bible
+// ---------------------------------------------------------------------
+
+// A technology depending on another technology (source requires target).
+// Lives in the ordinary relationships table -- unlike Phase 4's location
+// hierarchy (a strict tree, a dedicated column), a technology's
+// dependencies form an ordinary N:N graph, exactly what relationships
+// already models (mirrors loreforge_core::models::REQUIRES).
+export const REQUIRES = "requires";
+
+// A character, event, or location using a technology (source = the user,
+// target = the technology).
+export const USES_TECHNOLOGY = "uses_technology";
+
+export type TechnologyCategory =
+  | "ships"
+  | "weapons"
+  | "power_systems"
+  | "communications"
+  | "medical"
+  | "artificial_intelligence"
+  | "void_technology"
+  | "military_doctrine"
+  | "other";
+
+export const TECHNOLOGY_CATEGORIES: TechnologyCategory[] = [
+  "ships",
+  "weapons",
+  "power_systems",
+  "communications",
+  "medical",
+  "artificial_intelligence",
+  "void_technology",
+  "military_doctrine",
+  "other",
+];
+
+export interface Technology {
+  id: string;
+  name: string;
+  category: string;
+  description: string;
+  introduced_date: string | null;
+  date_precision: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface NewTechnology {
+  name: string;
+  category?: string;
+  description?: string;
+  introduced_date?: string | null;
+  date_precision?: string;
+}
+
+// introduced_date uses `string | null | undefined` to mirror the Rust
+// `Option<Option<String>>` "explicit null" pattern: `undefined` means
+// "don't touch the date", `null` means "clear it back to unknown".
+export interface TechnologyPatch {
+  name?: string;
+  category?: string;
+  description?: string;
+  introduced_date?: string | null;
+  date_precision?: string;
+}
+
+export interface TechnologyFilter {
+  search?: string;
+  category?: string;
 }

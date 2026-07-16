@@ -59,6 +59,14 @@ pub fn run() {
       commands::delete_location,
       commands::list_location_children,
       commands::get_location_ancestry_chain,
+      commands::list_technologies,
+      commands::get_technology,
+      commands::create_technology,
+      commands::update_technology,
+      commands::delete_technology,
+      commands::list_technology_prerequisites,
+      commands::list_technology_dependents,
+      commands::create_requires_edge,
     ])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");

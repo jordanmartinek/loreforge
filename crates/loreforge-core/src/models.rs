@@ -168,6 +168,8 @@ pub struct DashboardMetrics {
     pub canon_deprecated: i64,
     pub locations_total: i64,
     pub location_types_in_use: i64,
+    pub technologies_total: i64,
+    pub technology_categories_in_use: i64,
 }
 
 /// The relationship_type used to link a character to an event they
@@ -374,4 +376,75 @@ pub struct LocationPatch {
 pub struct LocationFilter {
     pub search: Option<String>,
     pub location_type: Option<String>,
+}
+
+// ---------------------------------------------------------------------
+// Phase 5: Technology Bible
+// ---------------------------------------------------------------------
+
+/// A technology depending on another technology (source requires target).
+/// Lives in the ordinary `relationships` table -- unlike Phase 4's location
+/// hierarchy (a strict tree, modeled as a dedicated column), a technology's
+/// dependencies form an ordinary N:N graph, exactly what `relationships`
+/// already models, per design-phase-5-technology.md section 1.
+pub const REQUIRES: &str = "requires";
+
+/// A character, event, or location using a technology (source = the user,
+/// target = the technology).
+pub const USES_TECHNOLOGY: &str = "uses_technology";
+
+pub const TECHNOLOGY_CATEGORIES: &[&str] = &[
+    "ships",
+    "weapons",
+    "power_systems",
+    "communications",
+    "medical",
+    "artificial_intelligence",
+    "void_technology",
+    "military_doctrine",
+    "other",
+];
+
+/// Full technology DTO returned to the frontend: generic entity fields
+/// flattened together with technology-specific detail fields.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Technology {
+    pub id: String,
+    pub name: String,
+    pub category: String,
+    pub description: String,
+    pub introduced_date: Option<String>,
+    pub date_precision: String,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct NewTechnology {
+    pub name: String,
+    pub category: Option<String>,
+    pub description: Option<String>,
+    pub introduced_date: Option<String>,
+    pub date_precision: Option<String>,
+}
+
+/// Patch payload for updating a technology. `None` means "leave
+/// unchanged", mirroring every prior phase's per-field autosave contract.
+/// `introduced_date` uses the `Option<Option<String>>` "explicit null"
+/// pattern (like `EventPatch::end_date` / `LocationPatch::parent_location_id`)
+/// so a client can distinguish "don't touch the date" from "clear the date
+/// back to unknown" (set to `Some(None)`).
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct TechnologyPatch {
+    pub name: Option<String>,
+    pub category: Option<String>,
+    pub description: Option<String>,
+    pub introduced_date: Option<Option<String>>,
+    pub date_precision: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct TechnologyFilter {
+    pub search: Option<String>,
+    pub category: Option<String>,
 }

@@ -8,6 +8,7 @@ import { CharactersPage } from "./pages/CharactersPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { GraphPage } from "./pages/GraphPage";
 import { LocationsPage } from "./pages/LocationsPage";
+import { TechnologyPage } from "./pages/TechnologyPage";
 import { TimelinePage } from "./pages/TimelinePage";
 import { useUiStore } from "./store/uiStore";
 
@@ -18,6 +19,7 @@ const TITLES: Record<string, string> = {
   "/timeline": "Timeline",
   "/canon": "Canon",
   "/locations": "World Explorer",
+  "/technology": "Technology Bible",
 };
 
 function useSyncThemeClass() {
@@ -78,6 +80,14 @@ function App() {
           element={
             <AppShell title={TITLES["/locations"]}>
               <LocationsPage />
+            </AppShell>
+          }
+        />
+        <Route
+          path="/technology"
+          element={
+            <AppShell title={TITLES["/technology"]}>
+              <TechnologyPage />
             </AppShell>
           }
         />

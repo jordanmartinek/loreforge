@@ -15,5 +15,6 @@ pub mod migrations;
 pub mod models;
 pub mod relationships;
 pub mod revisions;
+pub mod technologies;
 
 pub use error::{LoreError, Result};
