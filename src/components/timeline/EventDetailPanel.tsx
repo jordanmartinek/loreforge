@@ -7,6 +7,7 @@ import { Select } from "../ui/Select";
 import { useCreateEvent, useDeleteEvent, useUpdateEvent } from "../../hooks/useEvents";
 import { EVENT_LAYERS, type Event } from "../../lib/types";
 import { RevisionHistoryPanel } from "../history/RevisionHistoryPanel";
+import { EntityLocationLinks } from "../locations/EntityLocationLinks";
 import { EventParticipants } from "./EventParticipants";
 
 const LAYER_LABELS: Record<string, string> = {
@@ -208,6 +209,11 @@ export function EventDetailPanel({ event, onClose }: EventDetailPanelProps) {
               Participants
             </h3>
             <EventParticipants eventId={event.id} />
+          </div>
+
+          <div className="flex flex-col gap-2 border-t border-[var(--color-border-subtle)] pt-4">
+            <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">Location</h3>
+            <EntityLocationLinks entityId={event.id} />
           </div>
 
           <div className="flex flex-col gap-2 border-t border-[var(--color-border-subtle)] pt-4">

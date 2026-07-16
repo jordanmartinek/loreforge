@@ -111,6 +111,8 @@ export interface DashboardMetrics {
   canon_draft: number;
   canon_under_review: number;
   canon_deprecated: number;
+  locations_total: number;
+  location_types_in_use: number;
 }
 
 export type SaveStatus = "saved" | "saving" | "offline";
@@ -250,4 +252,68 @@ export interface RevisionEntry {
   after_json: string | null;
   changed_at: string;
   note: string | null;
+}
+
+// ---------------------------------------------------------------------
+// Phase 4: World Explorer (Locations)
+// ---------------------------------------------------------------------
+
+// A character or event being associated with a location. Lives in the
+// ordinary relationships table -- no new join table (mirrors
+// loreforge_core::models::LOCATED_AT).
+export const LOCATED_AT = "located_at";
+
+export type LocationType =
+  | "galaxy"
+  | "solar_system"
+  | "planet"
+  | "station"
+  | "city"
+  | "ship"
+  | "building"
+  | "room"
+  | "other";
+
+export const LOCATION_TYPES: LocationType[] = [
+  "galaxy",
+  "solar_system",
+  "planet",
+  "station",
+  "city",
+  "ship",
+  "building",
+  "room",
+  "other",
+];
+
+export interface Location {
+  id: string;
+  name: string;
+  location_type: string;
+  description: string;
+  parent_location_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface NewLocation {
+  name: string;
+  location_type?: string;
+  description?: string;
+  parent_location_id?: string | null;
+}
+
+// parent_location_id uses `string | null | undefined` to mirror the Rust
+// `Option<Option<String>>` "explicit null" pattern: `undefined` means
+// "don't touch the parent", `null` means "move to root".
+export interface LocationPatch {
+  name?: string;
+  location_type?: string;
+  description?: string;
+  parent_location_id?: string | null;
+}
+
+export interface LocationFilter {
+  search?: string;
+  location_type?: string;
 }

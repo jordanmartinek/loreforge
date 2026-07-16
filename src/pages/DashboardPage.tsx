@@ -4,7 +4,6 @@ import { useDashboardMetrics } from "../hooks/useDashboardMetrics";
 const COMING_SOON_CARDS = [
   { title: "Story Progress", icon: "◔" },
   { title: "Universe", icon: "✦" },
-  { title: "Locations", icon: "⌖" },
   { title: "Technology", icon: "⚙" },
   { title: "Species", icon: "❖" },
   { title: "Ships", icon: "▲" },
@@ -109,6 +108,20 @@ export function DashboardPage() {
                   { label: "Draft", value: metrics?.canon_draft ?? 0 },
                   { label: "Under Review", value: metrics?.canon_under_review ?? 0 },
                   { label: "Deprecated", value: metrics?.canon_deprecated ?? 0 },
+                ]
+          }
+        />
+
+        <MetricCard
+          title="Locations"
+          icon="⌖"
+          to="/locations"
+          metrics={
+            isLoading
+              ? undefined
+              : [
+                  { label: "Total", value: metrics?.locations_total ?? 0 },
+                  { label: "Types Used", value: metrics?.location_types_in_use ?? 0 },
                 ]
           }
         />

@@ -1,10 +1,11 @@
 use crate::state::AppState;
 use loreforge_core::models::{
     CanonEntry, CanonEntryPatch, CanonFilter, Character, CharacterFilter, CharacterPatch,
-    DashboardMetrics, Event, EventFilter, EventPatch, NewCanonEntry, NewCharacter, NewEvent,
-    NewRelationship, Relationship, RelationshipPatch, RevisionEntry,
+    DashboardMetrics, Event, EventFilter, EventPatch, Location, LocationFilter, LocationPatch,
+    NewCanonEntry, NewCharacter, NewEvent, NewLocation, NewRelationship, Relationship,
+    RelationshipPatch, RevisionEntry,
 };
-use loreforge_core::{canon, characters, dashboard, events, relationships, revisions};
+use loreforge_core::{canon, characters, dashboard, events, locations, relationships, revisions};
 use tauri::State;
 
 // Every command maps 1:1 to a loreforge-core function. Errors are converted
@@ -180,4 +181,62 @@ pub fn list_revisions_for_entity(
 ) -> Result<Vec<RevisionEntry>, String> {
     let conn = state.conn.lock().map_err(|e| e.to_string())?;
     revisions::list_for_record(&conn, &entity_id, limit).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn list_locations(
+    state: State<AppState>,
+    filter: LocationFilter,
+) -> Result<Vec<Location>, String> {
+    let conn = state.conn.lock().map_err(|e| e.to_string())?;
+    locations::list(&conn, &filter).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn get_location(state: State<AppState>, id: String) -> Result<Location, String> {
+    let conn = state.conn.lock().map_err(|e| e.to_string())?;
+    locations::get(&conn, &id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn create_location(
+    state: State<AppState>,
+    input: NewLocation,
+) -> Result<Location, String> {
+    let conn = state.conn.lock().map_err(|e| e.to_string())?;
+    locations::create(&conn, input).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn update_location(
+    state: State<AppState>,
+    id: String,
+    patch: LocationPatch,
+) -> Result<Location, String> {
+    let conn = state.conn.lock().map_err(|e| e.to_string())?;
+    locations::update(&conn, &id, patch).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn delete_location(state: State<AppState>, id: String) -> Result<(), String> {
+    let conn = state.conn.lock().map_err(|e| e.to_string())?;
+    locations::delete(&conn, &id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn list_location_children(
+    state: State<AppState>,
+    parent_id: Option<String>,
+) -> Result<Vec<Location>, String> {
+    let conn = state.conn.lock().map_err(|e| e.to_string())?;
+    locations::list_children(&conn, parent_id.as_deref()).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn get_location_ancestry_chain(
+    state: State<AppState>,
+    id: String,
+) -> Result<Vec<Location>, String> {
+    let conn = state.conn.lock().map_err(|e| e.to_string())?;
+    locations::get_ancestry_chain(&conn, &id).map_err(|e| e.to_string())
 }

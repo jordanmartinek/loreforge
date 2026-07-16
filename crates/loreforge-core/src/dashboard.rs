@@ -1,7 +1,8 @@
 use crate::canon;
 use crate::error::Result;
 use crate::events;
-use crate::models::{CanonFilter, DashboardMetrics, EventFilter};
+use crate::locations;
+use crate::models::{CanonFilter, DashboardMetrics, EventFilter, LocationFilter};
 use rusqlite::Connection;
 use std::collections::HashSet;
 
@@ -80,6 +81,12 @@ pub fn get_metrics(conn: &Connection) -> Result<DashboardMetrics> {
         }
     }
 
+    // Location metrics (Phase 4).
+    let all_locations = locations::list(conn, &LocationFilter::default())?;
+    let locations_total = all_locations.len() as i64;
+    let location_types_seen: HashSet<String> =
+        all_locations.iter().map(|l| l.location_type.clone()).collect();
+
     Ok(DashboardMetrics {
         characters_total,
         characters_main,
@@ -94,6 +101,8 @@ pub fn get_metrics(conn: &Connection) -> Result<DashboardMetrics> {
         canon_draft,
         canon_under_review,
         canon_deprecated,
+        locations_total,
+        location_types_in_use: location_types_seen.len() as i64,
     })
 }
 
@@ -103,7 +112,8 @@ mod tests {
     use crate::canon;
     use crate::characters;
     use crate::db;
-    use crate::models::{CharacterPatch, NewCanonEntry, NewCharacter, NewEvent};
+    use crate::locations;
+    use crate::models::{CharacterPatch, NewCanonEntry, NewCharacter, NewEvent, NewLocation};
 
     #[test]
     fn metrics_reflect_live_data() {
@@ -165,5 +175,17 @@ mod tests {
         assert_eq!(metrics.canon_draft, 2);
         assert_eq!(metrics.canon_under_review, 1);
         assert_eq!(metrics.canon_deprecated, 1);
+    }
+
+    #[test]
+    fn metrics_reflect_live_location_data() {
+        let conn = db::open_in_memory().unwrap();
+        locations::create(&conn, NewLocation { name: "Sol System".into(), location_type: Some("solar_system".into()), ..Default::default() }).unwrap();
+        locations::create(&conn, NewLocation { name: "Earth".into(), location_type: Some("planet".into()), ..Default::default() }).unwrap();
+        locations::create(&conn, NewLocation { name: "Mars".into(), location_type: Some("planet".into()), ..Default::default() }).unwrap();
+
+        let metrics = get_metrics(&conn).unwrap();
+        assert_eq!(metrics.locations_total, 3);
+        assert_eq!(metrics.location_types_in_use, 2); // solar_system, planet
     }
 }
