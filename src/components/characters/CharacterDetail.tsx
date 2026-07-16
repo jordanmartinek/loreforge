@@ -1,6 +1,7 @@
 import { useCharacter, useUpdateCharacter } from "../../hooks/useCharacters";
 import type { CharacterPatch } from "../../lib/types";
 import { AutosaveField } from "./AutosaveField";
+import { CharacterTimeline } from "./CharacterTimeline";
 import { RelationshipEditor } from "./RelationshipEditor";
 import { Select } from "../ui/Select";
 
@@ -131,6 +132,10 @@ export function CharacterDetail({ characterId }: CharacterDetailProps) {
 
       <Section title="Relationships">
         <RelationshipEditor characterId={character.id} />
+      </Section>
+
+      <Section title="Timeline">
+        <CharacterTimeline characterId={character.id} />
       </Section>
     </div>
   );

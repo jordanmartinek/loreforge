@@ -6,12 +6,14 @@ import { queryClient } from "./lib/queryClient";
 import { CharactersPage } from "./pages/CharactersPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { GraphPage } from "./pages/GraphPage";
+import { TimelinePage } from "./pages/TimelinePage";
 import { useUiStore } from "./store/uiStore";
 
 const TITLES: Record<string, string> = {
   "/": "Universe Dashboard",
   "/characters": "Characters",
   "/graph": "Universe Graph",
+  "/timeline": "Timeline",
 };
 
 function useSyncThemeClass() {
@@ -48,6 +50,14 @@ function App() {
           element={
             <AppShell title={TITLES["/graph"]}>
               <GraphPage />
+            </AppShell>
+          }
+        />
+        <Route
+          path="/timeline"
+          element={
+            <AppShell title={TITLES["/timeline"]}>
+              <TimelinePage />
             </AppShell>
           }
         />

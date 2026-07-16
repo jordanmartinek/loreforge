@@ -41,6 +41,11 @@ pub fn run() {
       commands::update_relationship,
       commands::delete_relationship,
       commands::get_dashboard_metrics,
+      commands::list_events,
+      commands::get_event,
+      commands::create_event,
+      commands::update_event,
+      commands::delete_event,
     ])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");

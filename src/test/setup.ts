@@ -10,27 +10,38 @@ afterEach(() => {
 // jsdom reports all elements as 0x0, so @tanstack/react-virtual (which
 // measures the scroll container to decide how many rows to render) thinks
 // there's no visible space and renders nothing. Give every element a
-// reasonable non-zero size so virtualized lists behave in tests the way
-// they do in a real browser window.
+// reasonable non-zero size -- matching a realistic desktop viewport, since
+// this app is desktop-first -- so virtualized/windowed views (character
+// list, timeline) behave in tests the way they do in a real browser window.
 Object.defineProperty(HTMLElement.prototype, "offsetHeight", {
   configurable: true,
-  value: 600,
+  value: 800,
 });
 Object.defineProperty(HTMLElement.prototype, "offsetWidth", {
   configurable: true,
-  value: 400,
+  value: 1280,
+});
+// jsdom never computes layout, so clientWidth/clientHeight (used by
+// TimelineView to size its render window) stay 0 unless explicitly set.
+Object.defineProperty(HTMLElement.prototype, "clientHeight", {
+  configurable: true,
+  value: 800,
+});
+Object.defineProperty(HTMLElement.prototype, "clientWidth", {
+  configurable: true,
+  value: 1280,
 });
 if (!Element.prototype.getBoundingClientRect || true) {
   Element.prototype.getBoundingClientRect = function (
     this: Element,
   ): DOMRect {
     return {
-      width: 400,
-      height: 600,
+      width: 1280,
+      height: 800,
       top: 0,
       left: 0,
-      right: 400,
-      bottom: 600,
+      right: 1280,
+      bottom: 800,
       x: 0,
       y: 0,
       toJSON() {

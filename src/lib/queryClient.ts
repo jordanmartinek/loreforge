@@ -23,6 +23,11 @@ export const queryKeys = {
     all: ["relationships"] as const,
     forEntity: (id: string) => ["relationships", "entity", id] as const,
   },
+  events: {
+    all: ["events"] as const,
+    list: (filter: unknown) => ["events", "list", filter] as const,
+    detail: (id: string) => ["events", "detail", id] as const,
+  },
   dashboard: {
     metrics: ["dashboard", "metrics"] as const,
   },

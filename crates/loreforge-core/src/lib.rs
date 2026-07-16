@@ -8,6 +8,7 @@ pub mod characters;
 pub mod dashboard;
 pub mod db;
 pub mod error;
+pub mod events;
 pub mod migrations;
 pub mod models;
 pub mod relationships;

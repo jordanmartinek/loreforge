@@ -103,6 +103,77 @@ export interface DashboardMetrics {
   characters_supporting: number;
   characters_needs_development: number;
   relationships_total: number;
+  events_total: number;
+  layers_in_use: number;
+  earliest_event_date: string | null;
+  latest_event_date: string | null;
 }
 
 export type SaveStatus = "saved" | "saving" | "offline";
+
+// The relationship_type used to link a character to an event they
+// participate in. Lives in the ordinary relationships table -- no new join
+// table (mirrors loreforge_core::models::PARTICIPATES_IN).
+export const PARTICIPATES_IN = "participates_in";
+
+export type EventLayer =
+  | "historical"
+  | "political"
+  | "military"
+  | "technology"
+  | "character_life"
+  | "wars"
+  | "books"
+  | "screenplays";
+
+export const EVENT_LAYERS: EventLayer[] = [
+  "historical",
+  "political",
+  "military",
+  "technology",
+  "character_life",
+  "wars",
+  "books",
+  "screenplays",
+];
+
+export type DatePrecision = "century" | "decade" | "year" | "month" | "day";
+export type EventSignificance = "major" | "minor";
+
+export interface Event {
+  id: string;
+  name: string;
+  description: string;
+  layers: string[];
+  start_date: string;
+  end_date: string | null;
+  date_precision: string;
+  significance: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface NewEvent {
+  name: string;
+  description?: string;
+  layers?: string[];
+  start_date: string;
+  end_date?: string | null;
+  date_precision?: string;
+  significance?: string;
+}
+
+export interface EventPatch {
+  name?: string;
+  description?: string;
+  layers?: string[];
+  start_date?: string;
+  end_date?: string | null;
+  date_precision?: string;
+  significance?: string;
+}
+
+export interface EventFilter {
+  search?: string;
+  layer?: string;
+}

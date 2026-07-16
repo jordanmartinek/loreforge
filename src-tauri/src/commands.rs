@@ -1,9 +1,9 @@
 use crate::state::AppState;
 use loreforge_core::models::{
-    Character, CharacterFilter, CharacterPatch, DashboardMetrics, NewCharacter, NewRelationship,
-    Relationship, RelationshipPatch,
+    Character, CharacterFilter, CharacterPatch, DashboardMetrics, Event, EventFilter, EventPatch,
+    NewCharacter, NewEvent, NewRelationship, Relationship, RelationshipPatch,
 };
-use loreforge_core::{characters, dashboard, relationships};
+use loreforge_core::{characters, dashboard, events, relationships};
 use tauri::State;
 
 // Every command maps 1:1 to a loreforge-core function. Errors are converted
@@ -95,4 +95,38 @@ pub fn delete_relationship(state: State<AppState>, id: String) -> Result<(), Str
 pub fn get_dashboard_metrics(state: State<AppState>) -> Result<DashboardMetrics, String> {
     let conn = state.conn.lock().map_err(|e| e.to_string())?;
     dashboard::get_metrics(&conn).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn list_events(state: State<AppState>, filter: EventFilter) -> Result<Vec<Event>, String> {
+    let conn = state.conn.lock().map_err(|e| e.to_string())?;
+    events::list(&conn, &filter).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn get_event(state: State<AppState>, id: String) -> Result<Event, String> {
+    let conn = state.conn.lock().map_err(|e| e.to_string())?;
+    events::get(&conn, &id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn create_event(state: State<AppState>, input: NewEvent) -> Result<Event, String> {
+    let conn = state.conn.lock().map_err(|e| e.to_string())?;
+    events::create(&conn, input).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn update_event(
+    state: State<AppState>,
+    id: String,
+    patch: EventPatch,
+) -> Result<Event, String> {
+    let conn = state.conn.lock().map_err(|e| e.to_string())?;
+    events::update(&conn, &id, patch).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn delete_event(state: State<AppState>, id: String) -> Result<(), String> {
+    let conn = state.conn.lock().map_err(|e| e.to_string())?;
+    events::delete(&conn, &id).map_err(|e| e.to_string())
 }

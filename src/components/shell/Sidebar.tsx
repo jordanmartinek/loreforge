@@ -11,6 +11,7 @@ const NAV_ITEMS: NavItem[] = [
   { to: "/", label: "Dashboard", icon: "◈" },
   { to: "/characters", label: "Characters", icon: "☰" },
   { to: "/graph", label: "Universe Graph", icon: "◎" },
+  { to: "/timeline", label: "Timeline", icon: "⟿" },
 ];
 
 export function Sidebar() {
@@ -46,7 +47,7 @@ export function Sidebar() {
       </nav>
 
       <div className="px-5 py-4 text-[11px] text-[var(--color-text-tertiary)]">
-        Phase 1 · Local-first
+        Phase 2 · Local-first
       </div>
     </aside>
   );
