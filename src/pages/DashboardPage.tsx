@@ -4,7 +4,6 @@ import { useDashboardMetrics } from "../hooks/useDashboardMetrics";
 const COMING_SOON_CARDS = [
   { title: "Story Progress", icon: "◔" },
   { title: "Universe", icon: "✦" },
-  { title: "Timeline", icon: "⟿" },
   { title: "Canon", icon: "▣" },
   { title: "Locations", icon: "⌖" },
   { title: "Technology", icon: "⚙" },
@@ -20,6 +19,13 @@ const COMING_SOON_CARDS = [
   { title: "Screenplay", icon: "▭" },
   { title: "Analytics", icon: "▤" },
 ];
+
+function dateSpanLabel(earliest?: string | null, latest?: string | null): string {
+  if (!earliest || !latest) return "—";
+  const earliestYear = earliest.slice(0, 4);
+  const latestYear = latest.slice(0, 4);
+  return earliestYear === latestYear ? earliestYear : `${earliestYear}–${latestYear}`;
+}
 
 export function DashboardPage() {
   const { data: metrics, isLoading } = useDashboardMetrics();
@@ -66,6 +72,27 @@ export function DashboardPage() {
                   {
                     label: "Relationships",
                     value: metrics?.relationships_total ?? 0,
+                  },
+                ]
+          }
+        />
+
+        <MetricCard
+          title="Timeline"
+          icon="⟿"
+          to="/timeline"
+          metrics={
+            isLoading
+              ? undefined
+              : [
+                  { label: "Events", value: metrics?.events_total ?? 0 },
+                  { label: "Layers", value: metrics?.layers_in_use ?? 0 },
+                  {
+                    label: "Span",
+                    value: dateSpanLabel(
+                      metrics?.earliest_event_date,
+                      metrics?.latest_event_date,
+                    ),
                   },
                 ]
           }

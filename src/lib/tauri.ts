@@ -9,7 +9,11 @@ import type {
   CharacterFilter,
   CharacterPatch,
   DashboardMetrics,
+  Event,
+  EventFilter,
+  EventPatch,
   NewCharacter,
+  NewEvent,
   NewRelationship,
   Relationship,
   RelationshipPatch,
@@ -37,6 +41,14 @@ export const api = {
     update: (id: string, patch: RelationshipPatch) =>
       invoke<Relationship>("update_relationship", { id, patch }),
     delete: (id: string) => invoke<void>("delete_relationship", { id }),
+  },
+  events: {
+    list: (filter: EventFilter = {}) => invoke<Event[]>("list_events", { filter }),
+    get: (id: string) => invoke<Event>("get_event", { id }),
+    create: (input: NewEvent) => invoke<Event>("create_event", { input }),
+    update: (id: string, patch: EventPatch) =>
+      invoke<Event>("update_event", { id, patch }),
+    delete: (id: string) => invoke<void>("delete_event", { id }),
   },
   dashboard: {
     getMetrics: () => invoke<DashboardMetrics>("get_dashboard_metrics"),

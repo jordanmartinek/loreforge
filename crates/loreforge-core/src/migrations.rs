@@ -4,7 +4,10 @@ use rusqlite::Connection;
 /// All migrations, in order. Each is applied exactly once, tracked via the
 /// `schema_migrations` table, so `run` is idempotent and safe to call on every
 /// app startup.
-const MIGRATIONS: &[(&str, &str)] = &[("0001_init", include_str!("../migrations/0001_init.sql"))];
+const MIGRATIONS: &[(&str, &str)] = &[
+    ("0001_init", include_str!("../migrations/0001_init.sql")),
+    ("0002_events", include_str!("../migrations/0002_events.sql")),
+];
 
 pub fn run(conn: &Connection) -> Result<()> {
     conn.execute_batch(

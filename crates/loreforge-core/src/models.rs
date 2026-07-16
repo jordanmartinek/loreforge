@@ -158,4 +158,73 @@ pub struct DashboardMetrics {
     pub characters_supporting: i64,
     pub characters_needs_development: i64,
     pub relationships_total: i64,
+    pub events_total: i64,
+    pub layers_in_use: i64,
+    pub earliest_event_date: Option<String>,
+    pub latest_event_date: Option<String>,
+}
+
+/// The relationship_type used to link a character to an event they
+/// participate in. Lives in the ordinary `relationships` table (source =
+/// character entity id, target = event entity id) -- no new join table, per
+/// design-phase-2-timeline.md section 1.
+pub const PARTICIPATES_IN: &str = "participates_in";
+
+/// The layers a timeline event can belong to, per the original brief's
+/// Timeline System section. An event can belong to more than one.
+pub const EVENT_LAYERS: &[&str] = &[
+    "historical",
+    "political",
+    "military",
+    "technology",
+    "character_life",
+    "wars",
+    "books",
+    "screenplays",
+];
+
+/// Full event DTO returned to the frontend: generic entity fields flattened
+/// together with event-specific detail fields.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Event {
+    pub id: String,
+    pub name: String,
+    pub description: String,
+    pub layers: Vec<String>,
+    pub start_date: String,
+    pub end_date: Option<String>,
+    pub date_precision: String,
+    pub significance: String,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct NewEvent {
+    pub name: String,
+    pub description: Option<String>,
+    pub layers: Option<Vec<String>>,
+    pub start_date: String,
+    pub end_date: Option<String>,
+    pub date_precision: Option<String>,
+    pub significance: Option<String>,
+}
+
+/// Patch payload for updating an event. `None` means "leave unchanged",
+/// mirroring `CharacterPatch`'s per-field autosave contract.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct EventPatch {
+    pub name: Option<String>,
+    pub description: Option<String>,
+    pub layers: Option<Vec<String>>,
+    pub start_date: Option<String>,
+    pub end_date: Option<Option<String>>,
+    pub date_precision: Option<String>,
+    pub significance: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct EventFilter {
+    pub search: Option<String>,
+    pub layer: Option<String>,
 }
