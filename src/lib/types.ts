@@ -107,6 +107,10 @@ export interface DashboardMetrics {
   layers_in_use: number;
   earliest_event_date: string | null;
   latest_event_date: string | null;
+  canon_approved: number;
+  canon_draft: number;
+  canon_under_review: number;
+  canon_deprecated: number;
 }
 
 export type SaveStatus = "saved" | "saving" | "offline";
@@ -176,4 +180,74 @@ export interface EventPatch {
 export interface EventFilter {
   search?: string;
   layer?: string;
+}
+
+// ---------------------------------------------------------------------
+// Phase 3: Canon Management
+// ---------------------------------------------------------------------
+
+// A canon entry depending on another canon entry (source depends on
+// target). Lives in the ordinary relationships table -- no new join table
+// (mirrors loreforge_core::models::DEPENDS_ON).
+export const DEPENDS_ON = "depends_on";
+
+// A canon entry relating to any other entity (character, event, or another
+// canon entry), no fixed directionality requirement.
+export const RELATES_TO = "relates_to";
+
+export type CanonStatus = "draft" | "under_review" | "approved" | "deprecated";
+export const CANON_STATUSES: CanonStatus[] = [
+  "draft",
+  "under_review",
+  "approved",
+  "deprecated",
+];
+
+export interface CanonEntry {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
+  status: string;
+  version: number;
+  notes: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface NewCanonEntry {
+  name: string;
+  description?: string;
+  category?: string;
+  status?: string;
+  notes?: string;
+}
+
+export interface CanonEntryPatch {
+  name?: string;
+  description?: string;
+  category?: string;
+  status?: string;
+  notes?: string;
+}
+
+export interface CanonFilter {
+  search?: string;
+  status?: string;
+  category?: string;
+}
+
+// A single row from the revisions table, read-only from the frontend's
+// perspective (mirrors loreforge_core::models::RevisionEntry).
+export type RevisionAction = "create" | "update" | "delete";
+
+export interface RevisionEntry {
+  id: string;
+  entity_id: string;
+  record_type: string;
+  action: string;
+  before_json: string | null;
+  after_json: string | null;
+  changed_at: string;
+  note: string | null;
 }

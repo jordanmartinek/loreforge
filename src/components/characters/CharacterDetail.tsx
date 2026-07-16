@@ -3,6 +3,7 @@ import type { CharacterPatch } from "../../lib/types";
 import { AutosaveField } from "./AutosaveField";
 import { CharacterTimeline } from "./CharacterTimeline";
 import { RelationshipEditor } from "./RelationshipEditor";
+import { RevisionHistoryButton } from "../history/RevisionHistoryPanel";
 import { Select } from "../ui/Select";
 
 interface CharacterDetailProps {
@@ -24,11 +25,16 @@ export function CharacterDetail({ characterId }: CharacterDetailProps) {
   return (
     <div className="flex h-full flex-col gap-6 overflow-auto pr-1">
       <div className="flex items-start justify-between gap-4">
-        <AutosaveField
-          label="Name"
-          value={character.name}
-          onCommit={(name) => commit({ name })}
-        />
+        <div className="flex-1">
+          <AutosaveField
+            label="Name"
+            value={character.name}
+            onCommit={(name) => commit({ name })}
+          />
+        </div>
+        <div className="pt-5">
+          <RevisionHistoryButton entityId={character.id} entityName={character.name} />
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-4">

@@ -1,6 +1,7 @@
+use crate::canon;
 use crate::error::Result;
 use crate::events;
-use crate::models::{DashboardMetrics, EventFilter};
+use crate::models::{CanonFilter, DashboardMetrics, EventFilter};
 use rusqlite::Connection;
 use std::collections::HashSet;
 
@@ -63,6 +64,22 @@ pub fn get_metrics(conn: &Connection) -> Result<DashboardMetrics> {
         }
     }
 
+    // Canon metrics (Phase 3).
+    let all_canon_entries = canon::list(conn, &CanonFilter::default())?;
+    let mut canon_approved = 0i64;
+    let mut canon_draft = 0i64;
+    let mut canon_under_review = 0i64;
+    let mut canon_deprecated = 0i64;
+    for entry in &all_canon_entries {
+        match entry.status.as_str() {
+            "approved" => canon_approved += 1,
+            "draft" => canon_draft += 1,
+            "under_review" => canon_under_review += 1,
+            "deprecated" => canon_deprecated += 1,
+            _ => {}
+        }
+    }
+
     Ok(DashboardMetrics {
         characters_total,
         characters_main,
@@ -73,15 +90,20 @@ pub fn get_metrics(conn: &Connection) -> Result<DashboardMetrics> {
         layers_in_use: layers_seen.len() as i64,
         earliest_event_date,
         latest_event_date,
+        canon_approved,
+        canon_draft,
+        canon_under_review,
+        canon_deprecated,
     })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::canon;
     use crate::characters;
     use crate::db;
-    use crate::models::{CharacterPatch, NewCharacter, NewEvent};
+    use crate::models::{CharacterPatch, NewCanonEntry, NewCharacter, NewEvent};
 
     #[test]
     fn metrics_reflect_live_data() {
@@ -127,5 +149,21 @@ mod tests {
         assert_eq!(metrics.layers_in_use, 3); // historical, military, wars
         assert_eq!(metrics.earliest_event_date, Some("2100-01-01".to_string()));
         assert_eq!(metrics.latest_event_date, Some("2142-06-01".to_string()));
+    }
+
+    #[test]
+    fn metrics_reflect_live_canon_data() {
+        let conn = db::open_in_memory().unwrap();
+        canon::create(&conn, NewCanonEntry { name: "A".into(), status: Some("approved".into()), ..Default::default() }).unwrap();
+        canon::create(&conn, NewCanonEntry { name: "B".into(), status: Some("draft".into()), ..Default::default() }).unwrap();
+        canon::create(&conn, NewCanonEntry { name: "C".into(), ..Default::default() }).unwrap(); // defaults to draft
+        canon::create(&conn, NewCanonEntry { name: "D".into(), status: Some("under_review".into()), ..Default::default() }).unwrap();
+        canon::create(&conn, NewCanonEntry { name: "E".into(), status: Some("deprecated".into()), ..Default::default() }).unwrap();
+
+        let metrics = get_metrics(&conn).unwrap();
+        assert_eq!(metrics.canon_approved, 1);
+        assert_eq!(metrics.canon_draft, 2);
+        assert_eq!(metrics.canon_under_review, 1);
+        assert_eq!(metrics.canon_deprecated, 1);
     }
 }

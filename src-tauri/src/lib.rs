@@ -46,6 +46,12 @@ pub fn run() {
       commands::create_event,
       commands::update_event,
       commands::delete_event,
+      commands::list_canon_entries,
+      commands::get_canon_entry,
+      commands::create_canon_entry,
+      commands::update_canon_entry,
+      commands::delete_canon_entry,
+      commands::list_revisions_for_entity,
     ])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");

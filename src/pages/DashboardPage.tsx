@@ -4,7 +4,6 @@ import { useDashboardMetrics } from "../hooks/useDashboardMetrics";
 const COMING_SOON_CARDS = [
   { title: "Story Progress", icon: "◔" },
   { title: "Universe", icon: "✦" },
-  { title: "Canon", icon: "▣" },
   { title: "Locations", icon: "⌖" },
   { title: "Technology", icon: "⚙" },
   { title: "Species", icon: "❖" },
@@ -94,6 +93,22 @@ export function DashboardPage() {
                       metrics?.latest_event_date,
                     ),
                   },
+                ]
+          }
+        />
+
+        <MetricCard
+          title="Canon"
+          icon="▣"
+          to="/canon"
+          metrics={
+            isLoading
+              ? undefined
+              : [
+                  { label: "Approved", value: metrics?.canon_approved ?? 0 },
+                  { label: "Draft", value: metrics?.canon_draft ?? 0 },
+                  { label: "Under Review", value: metrics?.canon_under_review ?? 0 },
+                  { label: "Deprecated", value: metrics?.canon_deprecated ?? 0 },
                 ]
           }
         />

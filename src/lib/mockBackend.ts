@@ -8,6 +8,9 @@
 // builds never import this file's logic path (see lib/api.ts).
 
 import type {
+  CanonEntry,
+  CanonEntryPatch,
+  CanonFilter,
   Character,
   CharacterFilter,
   CharacterPatch,
@@ -15,11 +18,13 @@ import type {
   Event,
   EventFilter,
   EventPatch,
+  NewCanonEntry,
   NewCharacter,
   NewEvent,
   NewRelationship,
   Relationship,
   RelationshipPatch,
+  RevisionEntry,
 } from "./types";
 
 function uuid(): string {
@@ -36,10 +41,44 @@ interface MockDb {
   characters: Character[];
   relationships: Relationship[];
   events: Event[];
+  canonEntries: CanonEntry[];
+  // A shared, append-only revision log that every entity type below writes
+  // to on create/update/delete -- mirrors the real backend's `revisions`
+  // table (design-phase-3-canon.md section 3.1), so RevisionHistoryPanel
+  // can be developed/tested against the mock backend with the same
+  // behavior as the real one.
+  revisions: RevisionEntry[];
 }
 
 function seedDb(): MockDb {
-  return { characters: [], relationships: [], events: [] };
+  return { characters: [], relationships: [], events: [], canonEntries: [], revisions: [] };
+}
+
+let revisionCounter = 0;
+
+/** Appends a revision row, mirroring loreforge_core::revisions::record.
+ * Uses an incrementing counter (not just a timestamp) as part of the sort
+ * key so that multiple revisions recorded within the same millisecond still
+ * sort in true insertion order -- the same class of bug that was found and
+ * fixed in the real backend's `list_for_record` (see
+ * revisions.rs::list_for_record's comment on why `rowid` is needed). */
+function recordRevision(
+  entityId: string,
+  action: RevisionEntry["action"],
+  before: unknown,
+  after: unknown,
+) {
+  revisionCounter += 1;
+  db.revisions.push({
+    id: `rev-${revisionCounter}`,
+    entity_id: entityId,
+    record_type: "entity",
+    action,
+    before_json: before ? JSON.stringify(before) : null,
+    after_json: after ? JSON.stringify(after) : null,
+    changed_at: new Date().toISOString(),
+    note: null,
+  });
 }
 
 function loadDb(): MockDb {
@@ -128,21 +167,26 @@ export const mockApi = {
         updated_at: now(),
       };
       db.characters.push(character);
+      recordRevision(character.id, "create", null, character);
       persist();
       return delay(character);
     },
     async update(id: string, patch: CharacterPatch): Promise<Character> {
       const character = db.characters.find((c) => c.id === id);
       if (!character) throw new Error(`character ${id} not found`);
+      const before = { ...character };
       Object.assign(character, patch, { updated_at: now() });
+      recordRevision(id, "update", before, character);
       persist();
       return delay(character);
     },
     async delete(id: string): Promise<void> {
+      const before = db.characters.find((c) => c.id === id);
       db.characters = db.characters.filter((c) => c.id !== id);
       db.relationships = db.relationships.filter(
         (r) => r.source_entity_id !== id && r.target_entity_id !== id,
       );
+      if (before) recordRevision(id, "delete", before, null);
       persist();
       return delay(undefined);
     },
@@ -226,6 +270,7 @@ export const mockApi = {
         updated_at: now(),
       };
       db.events.push(event);
+      recordRevision(event.id, "create", null, event);
       persist();
       return delay(event);
     },
@@ -237,11 +282,14 @@ export const mockApi = {
       if (nextEnd && nextEnd < nextStart) {
         throw new Error("event end_date cannot be before start_date");
       }
+      const before = { ...event };
       Object.assign(event, patch, { updated_at: now() });
+      recordRevision(id, "update", before, event);
       persist();
       return delay(event);
     },
     async delete(id: string): Promise<void> {
+      const before = db.events.find((e) => e.id === id);
       db.events = db.events.filter((e) => e.id !== id);
       // Cascade: remove relationships touching this event, but leave any
       // characters (or other entities) untouched -- mirrors
@@ -249,8 +297,87 @@ export const mockApi = {
       db.relationships = db.relationships.filter(
         (r) => r.source_entity_id !== id && r.target_entity_id !== id,
       );
+      if (before) recordRevision(id, "delete", before, null);
       persist();
       return delay(undefined);
+    },
+  },
+  canon: {
+    async list(filter: CanonFilter = {}): Promise<CanonEntry[]> {
+      let results = db.canonEntries;
+      if (filter.search?.trim()) {
+        const q = filter.search.trim().toLowerCase();
+        results = results.filter((c) => c.name.toLowerCase().includes(q));
+      }
+      if (filter.status) {
+        results = results.filter((c) => c.status === filter.status);
+      }
+      if (filter.category) {
+        results = results.filter((c) => c.category === filter.category);
+      }
+      results = [...results].sort((a, b) => a.name.localeCompare(b.name));
+      return delay(results);
+    },
+    async get(id: string): Promise<CanonEntry> {
+      const found = db.canonEntries.find((c) => c.id === id);
+      if (!found) throw new Error(`canon entry ${id} not found`);
+      return delay(found);
+    },
+    async create(input: NewCanonEntry): Promise<CanonEntry> {
+      if (!input.name.trim()) throw new Error("canon entry name is required");
+      const entry: CanonEntry = {
+        id: uuid(),
+        name: input.name,
+        description: input.description ?? "",
+        category: input.category ?? "",
+        status: input.status ?? "draft",
+        version: 1,
+        notes: input.notes ?? "",
+        created_at: now(),
+        updated_at: now(),
+      };
+      db.canonEntries.push(entry);
+      recordRevision(entry.id, "create", null, entry);
+      persist();
+      return delay(entry);
+    },
+    async update(id: string, patch: CanonEntryPatch): Promise<CanonEntry> {
+      const entry = db.canonEntries.find((c) => c.id === id);
+      if (!entry) throw new Error(`canon entry ${id} not found`);
+      const before = { ...entry };
+      const hasContentChange =
+        patch.name !== undefined ||
+        patch.description !== undefined ||
+        patch.category !== undefined ||
+        patch.status !== undefined ||
+        patch.notes !== undefined;
+      Object.assign(entry, patch, { updated_at: now() });
+      // Every content change bumps version by exactly 1 -- mirrors
+      // canon::update in loreforge-core (FR1.4/NFR2).
+      if (hasContentChange) entry.version += 1;
+      recordRevision(id, "update", before, entry);
+      persist();
+      return delay(entry);
+    },
+    async delete(id: string): Promise<void> {
+      const before = db.canonEntries.find((c) => c.id === id);
+      db.canonEntries = db.canonEntries.filter((c) => c.id !== id);
+      db.relationships = db.relationships.filter(
+        (r) => r.source_entity_id !== id && r.target_entity_id !== id,
+      );
+      if (before) recordRevision(id, "delete", before, null);
+      persist();
+      return delay(undefined);
+    },
+  },
+  revisions: {
+    async listForEntity(entityId: string, limit: number = 50): Promise<RevisionEntry[]> {
+      const matches = db.revisions.filter((r) => r.entity_id === entityId);
+      // Newest first, matching the real backend's ORDER BY changed_at DESC,
+      // rowid DESC -- array insertion order here plays the role rowid plays
+      // in SQLite, so a simple reverse is sufficient and correct.
+      const newestFirst = [...matches].reverse();
+      return delay(newestFirst.slice(0, limit));
     },
   },
   dashboard: {
@@ -274,6 +401,10 @@ export const mockApi = {
         layers_in_use: layersInUse.size,
         earliest_event_date: earliest,
         latest_event_date: latest,
+        canon_approved: db.canonEntries.filter((c) => c.status === "approved").length,
+        canon_draft: db.canonEntries.filter((c) => c.status === "draft").length,
+        canon_under_review: db.canonEntries.filter((c) => c.status === "under_review").length,
+        canon_deprecated: db.canonEntries.filter((c) => c.status === "deprecated").length,
       });
     },
   },
