@@ -2,10 +2,13 @@ use crate::state::AppState;
 use loreforge_core::models::{
     CanonEntry, CanonEntryPatch, CanonFilter, Character, CharacterFilter, CharacterPatch,
     DashboardMetrics, Event, EventFilter, EventPatch, Location, LocationFilter, LocationPatch,
-    NewCanonEntry, NewCharacter, NewEvent, NewLocation, NewRelationship, Relationship,
-    RelationshipPatch, RevisionEntry,
+    NewCanonEntry, NewCharacter, NewEvent, NewLocation, NewRelationship, NewTechnology,
+    Relationship, RelationshipPatch, RevisionEntry, Technology, TechnologyFilter,
+    TechnologyPatch,
 };
-use loreforge_core::{canon, characters, dashboard, events, locations, relationships, revisions};
+use loreforge_core::{
+    canon, characters, dashboard, events, locations, relationships, revisions, technologies,
+};
 use tauri::State;
 
 // Every command maps 1:1 to a loreforge-core function. Errors are converted
@@ -239,4 +242,73 @@ pub fn get_location_ancestry_chain(
 ) -> Result<Vec<Location>, String> {
     let conn = state.conn.lock().map_err(|e| e.to_string())?;
     locations::get_ancestry_chain(&conn, &id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn list_technologies(
+    state: State<AppState>,
+    filter: TechnologyFilter,
+) -> Result<Vec<Technology>, String> {
+    let conn = state.conn.lock().map_err(|e| e.to_string())?;
+    technologies::list(&conn, &filter).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn get_technology(state: State<AppState>, id: String) -> Result<Technology, String> {
+    let conn = state.conn.lock().map_err(|e| e.to_string())?;
+    technologies::get(&conn, &id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn create_technology(
+    state: State<AppState>,
+    input: NewTechnology,
+) -> Result<Technology, String> {
+    let conn = state.conn.lock().map_err(|e| e.to_string())?;
+    technologies::create(&conn, input).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn update_technology(
+    state: State<AppState>,
+    id: String,
+    patch: TechnologyPatch,
+) -> Result<Technology, String> {
+    let conn = state.conn.lock().map_err(|e| e.to_string())?;
+    technologies::update(&conn, &id, patch).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn delete_technology(state: State<AppState>, id: String) -> Result<(), String> {
+    let conn = state.conn.lock().map_err(|e| e.to_string())?;
+    technologies::delete(&conn, &id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn list_technology_prerequisites(
+    state: State<AppState>,
+    technology_id: String,
+) -> Result<Vec<Technology>, String> {
+    let conn = state.conn.lock().map_err(|e| e.to_string())?;
+    technologies::list_prerequisites(&conn, &technology_id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn list_technology_dependents(
+    state: State<AppState>,
+    technology_id: String,
+) -> Result<Vec<Technology>, String> {
+    let conn = state.conn.lock().map_err(|e| e.to_string())?;
+    technologies::list_dependents(&conn, &technology_id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn create_requires_edge(
+    state: State<AppState>,
+    dependent_id: String,
+    prerequisite_id: String,
+) -> Result<Relationship, String> {
+    let conn = state.conn.lock().map_err(|e| e.to_string())?;
+    technologies::create_requires_edge(&conn, &dependent_id, &prerequisite_id)
+        .map_err(|e| e.to_string())
 }

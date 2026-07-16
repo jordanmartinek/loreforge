@@ -5,6 +5,7 @@ import { CharacterTimeline } from "./CharacterTimeline";
 import { RelationshipEditor } from "./RelationshipEditor";
 import { RevisionHistoryButton } from "../history/RevisionHistoryPanel";
 import { EntityLocationLinks } from "../locations/EntityLocationLinks";
+import { EntityTechnologyLinks } from "../technology/EntityTechnologyLinks";
 import { Select } from "../ui/Select";
 
 interface CharacterDetailProps {
@@ -147,6 +148,10 @@ export function CharacterDetail({ characterId }: CharacterDetailProps) {
 
       <Section title="Location">
         <EntityLocationLinks entityId={character.id} />
+      </Section>
+
+      <Section title="Technology Used">
+        <EntityTechnologyLinks entityId={character.id} />
       </Section>
     </div>
   );

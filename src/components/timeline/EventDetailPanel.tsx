@@ -8,6 +8,7 @@ import { useCreateEvent, useDeleteEvent, useUpdateEvent } from "../../hooks/useE
 import { EVENT_LAYERS, type Event } from "../../lib/types";
 import { RevisionHistoryPanel } from "../history/RevisionHistoryPanel";
 import { EntityLocationLinks } from "../locations/EntityLocationLinks";
+import { EntityTechnologyLinks } from "../technology/EntityTechnologyLinks";
 import { EventParticipants } from "./EventParticipants";
 
 const LAYER_LABELS: Record<string, string> = {
@@ -214,6 +215,13 @@ export function EventDetailPanel({ event, onClose }: EventDetailPanelProps) {
           <div className="flex flex-col gap-2 border-t border-[var(--color-border-subtle)] pt-4">
             <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">Location</h3>
             <EntityLocationLinks entityId={event.id} />
+          </div>
+
+          <div className="flex flex-col gap-2 border-t border-[var(--color-border-subtle)] pt-4">
+            <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">
+              Technology Used
+            </h3>
+            <EntityTechnologyLinks entityId={event.id} />
           </div>
 
           <div className="flex flex-col gap-2 border-t border-[var(--color-border-subtle)] pt-4">

@@ -43,6 +43,13 @@ export const queryKeys = {
     children: (parentId: string | null) => ["locations", "children", parentId] as const,
     ancestry: (id: string) => ["locations", "ancestry", id] as const,
   },
+  technologies: {
+    all: ["technologies"] as const,
+    list: (filter: unknown) => ["technologies", "list", filter] as const,
+    detail: (id: string) => ["technologies", "detail", id] as const,
+    prerequisites: (id: string) => ["technologies", "prerequisites", id] as const,
+    dependents: (id: string) => ["technologies", "dependents", id] as const,
+  },
   dashboard: {
     metrics: ["dashboard", "metrics"] as const,
   },

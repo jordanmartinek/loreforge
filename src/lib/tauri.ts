@@ -23,9 +23,13 @@ import type {
   NewEvent,
   NewLocation,
   NewRelationship,
+  NewTechnology,
   Relationship,
   RelationshipPatch,
   RevisionEntry,
+  Technology,
+  TechnologyFilter,
+  TechnologyPatch,
 } from "./types";
 
 export const api = {
@@ -86,6 +90,25 @@ export const api = {
       invoke<Location[]>("list_location_children", { parentId }),
     getAncestryChain: (id: string) =>
       invoke<Location[]>("get_location_ancestry_chain", { id }),
+  },
+  technologies: {
+    list: (filter: TechnologyFilter = {}) =>
+      invoke<Technology[]>("list_technologies", { filter }),
+    get: (id: string) => invoke<Technology>("get_technology", { id }),
+    create: (input: NewTechnology) =>
+      invoke<Technology>("create_technology", { input }),
+    update: (id: string, patch: TechnologyPatch) =>
+      invoke<Technology>("update_technology", { id, patch }),
+    delete: (id: string) => invoke<void>("delete_technology", { id }),
+    listPrerequisites: (technologyId: string) =>
+      invoke<Technology[]>("list_technology_prerequisites", { technologyId }),
+    listDependents: (technologyId: string) =>
+      invoke<Technology[]>("list_technology_dependents", { technologyId }),
+    createRequiresEdge: (dependentId: string, prerequisiteId: string) =>
+      invoke<Relationship>("create_requires_edge", {
+        dependentId,
+        prerequisiteId,
+      }),
   },
   dashboard: {
     getMetrics: () => invoke<DashboardMetrics>("get_dashboard_metrics"),

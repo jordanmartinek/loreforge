@@ -2,7 +2,8 @@ use crate::canon;
 use crate::error::Result;
 use crate::events;
 use crate::locations;
-use crate::models::{CanonFilter, DashboardMetrics, EventFilter, LocationFilter};
+use crate::models::{CanonFilter, DashboardMetrics, EventFilter, LocationFilter, TechnologyFilter};
+use crate::technologies;
 use rusqlite::Connection;
 use std::collections::HashSet;
 
@@ -87,6 +88,12 @@ pub fn get_metrics(conn: &Connection) -> Result<DashboardMetrics> {
     let location_types_seen: HashSet<String> =
         all_locations.iter().map(|l| l.location_type.clone()).collect();
 
+    // Technology metrics (Phase 5).
+    let all_technologies = technologies::list(conn, &TechnologyFilter::default())?;
+    let technologies_total = all_technologies.len() as i64;
+    let technology_categories_seen: HashSet<String> =
+        all_technologies.iter().map(|t| t.category.clone()).collect();
+
     Ok(DashboardMetrics {
         characters_total,
         characters_main,
@@ -103,6 +110,8 @@ pub fn get_metrics(conn: &Connection) -> Result<DashboardMetrics> {
         canon_deprecated,
         locations_total,
         location_types_in_use: location_types_seen.len() as i64,
+        technologies_total,
+        technology_categories_in_use: technology_categories_seen.len() as i64,
     })
 }
 
@@ -113,7 +122,10 @@ mod tests {
     use crate::characters;
     use crate::db;
     use crate::locations;
-    use crate::models::{CharacterPatch, NewCanonEntry, NewCharacter, NewEvent, NewLocation};
+    use crate::models::{
+        CharacterPatch, NewCanonEntry, NewCharacter, NewEvent, NewLocation, NewTechnology,
+    };
+    use crate::technologies;
 
     #[test]
     fn metrics_reflect_live_data() {
@@ -187,5 +199,17 @@ mod tests {
         let metrics = get_metrics(&conn).unwrap();
         assert_eq!(metrics.locations_total, 3);
         assert_eq!(metrics.location_types_in_use, 2); // solar_system, planet
+    }
+
+    #[test]
+    fn metrics_reflect_live_technology_data() {
+        let conn = db::open_in_memory().unwrap();
+        technologies::create(&conn, NewTechnology { name: "Void Drive".into(), category: Some("void_technology".into()), ..Default::default() }).unwrap();
+        technologies::create(&conn, NewTechnology { name: "Plasma Rifle".into(), category: Some("weapons".into()), ..Default::default() }).unwrap();
+        technologies::create(&conn, NewTechnology { name: "Rail Gun".into(), category: Some("weapons".into()), ..Default::default() }).unwrap();
+
+        let metrics = get_metrics(&conn).unwrap();
+        assert_eq!(metrics.technologies_total, 3);
+        assert_eq!(metrics.technology_categories_in_use, 2); // void_technology, weapons
     }
 }
