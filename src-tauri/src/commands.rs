@@ -1,9 +1,10 @@
 use crate::state::AppState;
 use loreforge_core::models::{
-    Character, CharacterFilter, CharacterPatch, DashboardMetrics, Event, EventFilter, EventPatch,
-    NewCharacter, NewEvent, NewRelationship, Relationship, RelationshipPatch,
+    CanonEntry, CanonEntryPatch, CanonFilter, Character, CharacterFilter, CharacterPatch,
+    DashboardMetrics, Event, EventFilter, EventPatch, NewCanonEntry, NewCharacter, NewEvent,
+    NewRelationship, Relationship, RelationshipPatch, RevisionEntry,
 };
-use loreforge_core::{characters, dashboard, events, relationships};
+use loreforge_core::{canon, characters, dashboard, events, relationships, revisions};
 use tauri::State;
 
 // Every command maps 1:1 to a loreforge-core function. Errors are converted
@@ -129,4 +130,54 @@ pub fn update_event(
 pub fn delete_event(state: State<AppState>, id: String) -> Result<(), String> {
     let conn = state.conn.lock().map_err(|e| e.to_string())?;
     events::delete(&conn, &id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn list_canon_entries(
+    state: State<AppState>,
+    filter: CanonFilter,
+) -> Result<Vec<CanonEntry>, String> {
+    let conn = state.conn.lock().map_err(|e| e.to_string())?;
+    canon::list(&conn, &filter).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn get_canon_entry(state: State<AppState>, id: String) -> Result<CanonEntry, String> {
+    let conn = state.conn.lock().map_err(|e| e.to_string())?;
+    canon::get(&conn, &id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn create_canon_entry(
+    state: State<AppState>,
+    input: NewCanonEntry,
+) -> Result<CanonEntry, String> {
+    let conn = state.conn.lock().map_err(|e| e.to_string())?;
+    canon::create(&conn, input).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn update_canon_entry(
+    state: State<AppState>,
+    id: String,
+    patch: CanonEntryPatch,
+) -> Result<CanonEntry, String> {
+    let conn = state.conn.lock().map_err(|e| e.to_string())?;
+    canon::update(&conn, &id, patch).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn delete_canon_entry(state: State<AppState>, id: String) -> Result<(), String> {
+    let conn = state.conn.lock().map_err(|e| e.to_string())?;
+    canon::delete(&conn, &id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn list_revisions_for_entity(
+    state: State<AppState>,
+    entity_id: String,
+    limit: i64,
+) -> Result<Vec<RevisionEntry>, String> {
+    let conn = state.conn.lock().map_err(|e| e.to_string())?;
+    revisions::list_for_record(&conn, &entity_id, limit).map_err(|e| e.to_string())
 }

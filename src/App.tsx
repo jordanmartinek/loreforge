@@ -3,6 +3,7 @@ import { useEffect } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { AppShell } from "./components/shell/AppShell";
 import { queryClient } from "./lib/queryClient";
+import { CanonPage } from "./pages/CanonPage";
 import { CharactersPage } from "./pages/CharactersPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { GraphPage } from "./pages/GraphPage";
@@ -14,6 +15,7 @@ const TITLES: Record<string, string> = {
   "/characters": "Characters",
   "/graph": "Universe Graph",
   "/timeline": "Timeline",
+  "/canon": "Canon",
 };
 
 function useSyncThemeClass() {
@@ -58,6 +60,14 @@ function App() {
           element={
             <AppShell title={TITLES["/timeline"]}>
               <TimelinePage />
+            </AppShell>
+          }
+        />
+        <Route
+          path="/canon"
+          element={
+            <AppShell title={TITLES["/canon"]}>
+              <CanonPage />
             </AppShell>
           }
         />

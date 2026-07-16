@@ -162,6 +162,10 @@ pub struct DashboardMetrics {
     pub layers_in_use: i64,
     pub earliest_event_date: Option<String>,
     pub latest_event_date: Option<String>,
+    pub canon_approved: i64,
+    pub canon_draft: i64,
+    pub canon_under_review: i64,
+    pub canon_deprecated: i64,
 }
 
 /// The relationship_type used to link a character to an event they
@@ -227,4 +231,81 @@ pub struct EventPatch {
 pub struct EventFilter {
     pub search: Option<String>,
     pub layer: Option<String>,
+}
+
+// ---------------------------------------------------------------------
+// Phase 3: Canon Management
+// ---------------------------------------------------------------------
+
+/// A canon entry depending on another canon entry (source depends on
+/// target). Lives in the ordinary `relationships` table -- no new join
+/// table, per design-phase-3-canon.md section 1.
+pub const DEPENDS_ON: &str = "depends_on";
+
+/// A canon entry relating to any other entity (character, event, or another
+/// canon entry) with no fixed directionality requirement, unlike
+/// PARTICIPATES_IN or DEPENDS_ON.
+pub const RELATES_TO: &str = "relates_to";
+
+pub const CANON_STATUSES: &[&str] = &["draft", "under_review", "approved", "deprecated"];
+
+/// Full canon entry DTO returned to the frontend: generic entity fields
+/// flattened together with canon-specific detail fields.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CanonEntry {
+    pub id: String,
+    pub name: String,
+    pub description: String,
+    pub category: String,
+    pub status: String,
+    pub version: i64,
+    pub notes: String,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct NewCanonEntry {
+    pub name: String,
+    pub description: Option<String>,
+    pub category: Option<String>,
+    pub status: Option<String>,
+    pub notes: Option<String>,
+}
+
+/// Patch payload for updating a canon entry. `None` means "leave
+/// unchanged", mirroring `CharacterPatch`/`EventPatch`'s per-field autosave
+/// contract. Any patch that actually changes a field bumps `version` by 1
+/// (see canon::update) -- version is not itself patchable by the client.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct CanonEntryPatch {
+    pub name: Option<String>,
+    pub description: Option<String>,
+    pub category: Option<String>,
+    pub status: Option<String>,
+    pub notes: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct CanonFilter {
+    pub search: Option<String>,
+    pub status: Option<String>,
+    pub category: Option<String>,
+}
+
+/// A single row from the `revisions` table, exposed read-only to the
+/// frontend for the Version History panel (FR4). `before_json`/`after_json`
+/// are passed through as opaque JSON strings; the frontend computes a
+/// shallow diff for display rather than the backend pre-computing one, so
+/// the shape stays simple regardless of which entity type produced it.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RevisionEntry {
+    pub id: String,
+    pub entity_id: String,
+    pub record_type: String,
+    pub action: String,
+    pub before_json: Option<String>,
+    pub after_json: Option<String>,
+    pub changed_at: String,
+    pub note: Option<String>,
 }

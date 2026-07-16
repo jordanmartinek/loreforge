@@ -4,6 +4,7 @@
 //! tested, and reasoned about in any Rust environment. The `src-tauri` crate
 //! is a thin adapter that exposes these functions as Tauri commands.
 
+pub mod canon;
 pub mod characters;
 pub mod dashboard;
 pub mod db;

@@ -6,6 +6,7 @@ import { Modal } from "../ui/Modal";
 import { Select } from "../ui/Select";
 import { useCreateEvent, useDeleteEvent, useUpdateEvent } from "../../hooks/useEvents";
 import { EVENT_LAYERS, type Event } from "../../lib/types";
+import { RevisionHistoryPanel } from "../history/RevisionHistoryPanel";
 import { EventParticipants } from "./EventParticipants";
 
 const LAYER_LABELS: Record<string, string> = {
@@ -207,6 +208,11 @@ export function EventDetailPanel({ event, onClose }: EventDetailPanelProps) {
               Participants
             </h3>
             <EventParticipants eventId={event.id} />
+          </div>
+
+          <div className="flex flex-col gap-2 border-t border-[var(--color-border-subtle)] pt-4">
+            <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">History</h3>
+            <RevisionHistoryPanel entityId={event.id} />
           </div>
         </div>
       )}

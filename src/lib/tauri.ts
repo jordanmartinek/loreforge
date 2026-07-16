@@ -5,6 +5,9 @@
 
 import { invoke } from "@tauri-apps/api/core";
 import type {
+  CanonEntry,
+  CanonEntryPatch,
+  CanonFilter,
   Character,
   CharacterFilter,
   CharacterPatch,
@@ -12,11 +15,13 @@ import type {
   Event,
   EventFilter,
   EventPatch,
+  NewCanonEntry,
   NewCharacter,
   NewEvent,
   NewRelationship,
   Relationship,
   RelationshipPatch,
+  RevisionEntry,
 } from "./types";
 
 export const api = {
@@ -49,6 +54,20 @@ export const api = {
     update: (id: string, patch: EventPatch) =>
       invoke<Event>("update_event", { id, patch }),
     delete: (id: string) => invoke<void>("delete_event", { id }),
+  },
+  canon: {
+    list: (filter: CanonFilter = {}) =>
+      invoke<CanonEntry[]>("list_canon_entries", { filter }),
+    get: (id: string) => invoke<CanonEntry>("get_canon_entry", { id }),
+    create: (input: NewCanonEntry) =>
+      invoke<CanonEntry>("create_canon_entry", { input }),
+    update: (id: string, patch: CanonEntryPatch) =>
+      invoke<CanonEntry>("update_canon_entry", { id, patch }),
+    delete: (id: string) => invoke<void>("delete_canon_entry", { id }),
+  },
+  revisions: {
+    listForEntity: (entityId: string, limit: number = 50) =>
+      invoke<RevisionEntry[]>("list_revisions_for_entity", { entityId, limit }),
   },
   dashboard: {
     getMetrics: () => invoke<DashboardMetrics>("get_dashboard_metrics"),
