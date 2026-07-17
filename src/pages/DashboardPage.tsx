@@ -204,6 +204,13 @@ export function DashboardPage() {
           }
         />
 
+        <MetricCard
+          title="Import Notes"
+          icon="⇩"
+          to="/notes-import"
+          description="Paste notes to detect new story elements"
+        />
+
         {COMING_SOON_CARDS.map((card) => (
           <MetricCard key={card.title} title={card.title} icon={card.icon} comingSoon />
         ))}
