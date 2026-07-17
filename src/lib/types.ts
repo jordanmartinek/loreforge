@@ -123,6 +123,8 @@ export interface DashboardMetrics {
   political_classifications_in_use: number;
   religions_total: number;
   religion_classifications_in_use: number;
+  organizations_total: number;
+  organization_classifications_in_use: number;
 }
 
 export type SaveStatus = "saved" | "saving" | "offline";
@@ -666,6 +668,78 @@ export interface ReligionPatch {
 }
 
 export interface ReligionFilter {
+  search?: string;
+  classification?: string;
+}
+
+// ---------------------------------------------------------------------
+// Phase 10: Organizations
+// ---------------------------------------------------------------------
+
+// A character affiliated with an organization (source = character,
+// target = organization).
+export const AFFILIATED_WITH = "affiliated_with";
+
+// An organization operating out of a location (source = organization,
+// target = location).
+export const OPERATES_AT = "operates_at";
+
+// A symmetric alliance between two organizations. Distinct from
+// Politics' ALLIED_WITH even though the mock-backend validation logic is
+// shared -- two organizations being allied and two political entities
+// being allied are different facts.
+export const ORG_ALLIED_WITH = "org_allied_with";
+
+// A symmetric rivalry between two organizations. See ORG_ALLIED_WITH.
+export const ORG_RIVAL_OF = "org_rival_of";
+
+export type OrganizationClassification =
+  | "guild"
+  | "corporation"
+  | "syndicate"
+  | "secret_society"
+  | "trade_association"
+  | "criminal_enterprise"
+  | "other";
+
+export const ORGANIZATION_CLASSIFICATIONS: OrganizationClassification[] = [
+  "guild",
+  "corporation",
+  "syndicate",
+  "secret_society",
+  "trade_association",
+  "criminal_enterprise",
+  "other",
+];
+
+export interface Organization {
+  id: string;
+  name: string;
+  classification: string;
+  charter: string;
+  parent_organization_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface NewOrganization {
+  name: string;
+  classification?: string;
+  charter?: string;
+  parent_organization_id?: string | null;
+}
+
+// parent_organization_id uses `string | null | undefined` to mirror the
+// Rust `Option<Option<String>>` "explicit null" pattern: `undefined`
+// means "don't touch the parent", `null` means "move to root".
+export interface OrganizationPatch {
+  name?: string;
+  classification?: string;
+  charter?: string;
+  parent_organization_id?: string | null;
+}
+
+export interface OrganizationFilter {
   search?: string;
   classification?: string;
 }

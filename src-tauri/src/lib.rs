@@ -93,6 +93,15 @@ pub fn run() {
       commands::update_religion,
       commands::delete_religion,
       commands::list_schisms,
+      commands::list_organizations,
+      commands::get_organization,
+      commands::create_organization,
+      commands::update_organization,
+      commands::delete_organization,
+      commands::list_subsidiaries,
+      commands::create_org_symmetric_edge,
+      commands::list_org_allies,
+      commands::list_org_rivals,
     ])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");

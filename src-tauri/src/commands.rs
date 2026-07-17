@@ -3,14 +3,15 @@ use loreforge_core::models::{
     CanonEntry, CanonEntryPatch, CanonFilter, Character, CharacterFilter, CharacterPatch,
     DashboardMetrics, Event, EventFilter, EventPatch, Location, LocationFilter, LocationPatch,
     MilitaryUnit, MilitaryUnitFilter, MilitaryUnitPatch, NewCanonEntry, NewCharacter, NewEvent,
-    NewLocation, NewMilitaryUnit, NewPoliticalEntity, NewRelationship, NewReligion, NewSpecies,
-    NewTechnology, PoliticalEntity, PoliticalEntityFilter, PoliticalEntityPatch, Relationship,
+    NewLocation, NewMilitaryUnit, NewOrganization, NewPoliticalEntity, NewRelationship,
+    NewReligion, NewSpecies, NewTechnology, Organization, OrganizationFilter, OrganizationPatch,
+    PoliticalEntity, PoliticalEntityFilter, PoliticalEntityPatch, Relationship,
     RelationshipPatch, Religion, ReligionFilter, ReligionPatch, RevisionEntry, Species,
     SpeciesFilter, SpeciesPatch, Technology, TechnologyFilter, TechnologyPatch,
 };
 use loreforge_core::{
-    canon, characters, dashboard, events, locations, military, politics, relationships,
-    religions, revisions, species, technologies,
+    canon, characters, dashboard, events, locations, military, organizations, politics,
+    relationships, religions, revisions, species, technologies,
 };
 use tauri::State;
 
@@ -532,4 +533,82 @@ pub fn list_schisms(
 ) -> Result<Vec<Religion>, String> {
     let conn = state.conn.lock().map_err(|e| e.to_string())?;
     religions::list_schisms(&conn, parent_id.as_deref()).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn list_organizations(
+    state: State<AppState>,
+    filter: OrganizationFilter,
+) -> Result<Vec<Organization>, String> {
+    let conn = state.conn.lock().map_err(|e| e.to_string())?;
+    organizations::list(&conn, &filter).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn get_organization(state: State<AppState>, id: String) -> Result<Organization, String> {
+    let conn = state.conn.lock().map_err(|e| e.to_string())?;
+    organizations::get(&conn, &id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn create_organization(
+    state: State<AppState>,
+    input: NewOrganization,
+) -> Result<Organization, String> {
+    let conn = state.conn.lock().map_err(|e| e.to_string())?;
+    organizations::create(&conn, input).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn update_organization(
+    state: State<AppState>,
+    id: String,
+    patch: OrganizationPatch,
+) -> Result<Organization, String> {
+    let conn = state.conn.lock().map_err(|e| e.to_string())?;
+    organizations::update(&conn, &id, patch).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn delete_organization(state: State<AppState>, id: String) -> Result<(), String> {
+    let conn = state.conn.lock().map_err(|e| e.to_string())?;
+    organizations::delete(&conn, &id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn list_subsidiaries(
+    state: State<AppState>,
+    parent_id: Option<String>,
+) -> Result<Vec<Organization>, String> {
+    let conn = state.conn.lock().map_err(|e| e.to_string())?;
+    organizations::list_subsidiaries(&conn, parent_id.as_deref()).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn create_org_symmetric_edge(
+    state: State<AppState>,
+    a: String,
+    b: String,
+    relationship_type: String,
+) -> Result<Relationship, String> {
+    let conn = state.conn.lock().map_err(|e| e.to_string())?;
+    organizations::create_symmetric_edge(&conn, &a, &b, &relationship_type).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn list_org_allies(
+    state: State<AppState>,
+    entity_id: String,
+) -> Result<Vec<Organization>, String> {
+    let conn = state.conn.lock().map_err(|e| e.to_string())?;
+    organizations::list_org_allies(&conn, &entity_id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn list_org_rivals(
+    state: State<AppState>,
+    entity_id: String,
+) -> Result<Vec<Organization>, String> {
+    let conn = state.conn.lock().map_err(|e| e.to_string())?;
+    organizations::list_org_rivals(&conn, &entity_id).map_err(|e| e.to_string())
 }

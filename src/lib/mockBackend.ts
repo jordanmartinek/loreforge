@@ -29,11 +29,15 @@ import type {
   NewEvent,
   NewLocation,
   NewMilitaryUnit,
+  NewOrganization,
   NewPoliticalEntity,
   NewRelationship,
   NewReligion,
   NewSpecies,
   NewTechnology,
+  Organization,
+  OrganizationFilter,
+  OrganizationPatch,
   PoliticalEntity,
   PoliticalEntityFilter,
   PoliticalEntityPatch,
@@ -50,7 +54,7 @@ import type {
   TechnologyFilter,
   TechnologyPatch,
 } from "./types";
-import { ALLIED_WITH, REQUIRES, RIVAL_OF } from "./types";
+import { ALLIED_WITH, ORG_ALLIED_WITH, ORG_RIVAL_OF, REQUIRES, RIVAL_OF } from "./types";
 
 function uuid(): string {
   return "id-" + Math.random().toString(36).slice(2) + Date.now().toString(36);
@@ -73,6 +77,7 @@ interface MockDb {
   militaryUnits: MilitaryUnit[];
   politicalEntities: PoliticalEntity[];
   religions: Religion[];
+  organizations: Organization[];
   // A shared, append-only revision log that every entity type below writes
   // to on create/update/delete -- mirrors the real backend's `revisions`
   // table (design-phase-3-canon.md section 3.1), so RevisionHistoryPanel
@@ -93,6 +98,7 @@ function seedDb(): MockDb {
     militaryUnits: [],
     politicalEntities: [],
     religions: [],
+    organizations: [],
     revisions: [],
   };
 }
@@ -215,6 +221,30 @@ function wouldCreateReligionCycle(candidateId: string, newParentId: string): boo
   return false;
 }
 
+/** Mirrors organizations::would_create_cycle in loreforge-core: the fifth
+ * copy of this exact chain-walk shape in this file (after
+ * wouldCreateLocationCycle/wouldCreateSpeciesCycle/
+ * wouldCreateMilitaryUnitCycle/wouldCreateReligionCycle), per
+ * design-phase-10-organizations.md section 4.1 -- the frontend mock layer
+ * still has no cross-module duplication problem to solve, so this stays a
+ * fifth tiny standalone function rather than being generalized. */
+function wouldCreateOrganizationCycle(candidateId: string, newParentId: string): boolean {
+  if (candidateId === newParentId) return true;
+
+  const seen = new Set<string>();
+  let currentId: string | null = newParentId;
+
+  while (currentId !== null) {
+    if (currentId === candidateId) return true;
+    if (seen.has(currentId)) break; // pre-existing cycle elsewhere; don't loop forever
+    seen.add(currentId);
+    const current = db.organizations.find((o) => o.id === currentId);
+    currentId = current?.parent_organization_id ?? null;
+  }
+
+  return false;
+}
+
 /** Mirrors politics::find_edge_either_direction in loreforge-core:
  * direction-agnostic lookup for an existing edge of `relationshipType`
  * between `a` and `b` -- the piece that makes ALLIED_WITH/RIVAL_OF
@@ -267,8 +297,9 @@ function loadDb(): MockDb {
       // Merge with seedDb() so a mock DB persisted before newer fields
       // existed (e.g. `species`, added in Phase 6; `militaryUnits`, added
       // in Phase 7; `politicalEntities`, added in Phase 8; `religions`,
-      // added in Phase 9) doesn't crash with an undefined array -- same
-      // rationale as the original Phase 1/2 note.
+      // added in Phase 9; `organizations`, added in Phase 10) doesn't
+      // crash with an undefined array -- same rationale as the original
+      // Phase 1/2 note.
       return { ...seedDb(), ...(JSON.parse(raw) as Partial<MockDb>) };
     }
   } catch {
@@ -307,12 +338,20 @@ function delay<T>(value: T, ms = 150): Promise<T> {
 }
 
 /** Direction-agnostic resolution of "the other side" of a symmetric
- * relationship for `entityId` -- mirrors politics::list_symmetric_links
- * in loreforge-core (design-phase-8-politics.md section 1.1, point 3). */
-function listSymmetricLinks(
+ * relationship for `entityId`, generalized (Phase 10) over which array to
+ * resolve full records from -- mirrors the shared
+ * `symmetric::list_symmetric_link_ids` in loreforge-core (extracted this
+ * same phase; this is the frontend-mock counterpart, generalized the same
+ * way `politics::list_symmetric_links` was generalized into
+ * `symmetric::list_symmetric_link_ids` + per-module `get()` resolution --
+ * design-phase-10-organizations.md section 1.1). Callers pass their own
+ * full-record array (`db.politicalEntities`, `db.organizations`, etc.) so
+ * this function has no knowledge of any specific entity type. */
+function listSymmetricLinks<T extends { id: string }>(
+  records: T[],
   entityId: string,
   relationshipType: string,
-): Promise<PoliticalEntity[]> {
+): Promise<T[]> {
   const links = db.relationships.filter(
     (r) =>
       r.relationship_type === relationshipType &&
@@ -321,7 +360,36 @@ function listSymmetricLinks(
   const otherIds = links.map((r) =>
     r.source_entity_id === entityId ? r.target_entity_id : r.source_entity_id,
   );
-  return delay(db.politicalEntities.filter((p) => otherIds.includes(p.id)));
+  return delay(records.filter((p) => otherIds.includes(p.id)));
+}
+
+/** Generalized counterpart to `createSymmetricEdge`'s validation, shared
+ * across Politics and Organizations (Phase 10) -- mirrors the Rust-side
+ * `symmetric::create_symmetric_edge`. Takes the pair of mutually-exclusive
+ * relationship-type strings as parameters rather than being duplicated
+ * once per entity type. */
+async function createMockSymmetricEdge(
+  a: string,
+  b: string,
+  relationshipType: string,
+  opposite: string,
+): Promise<Relationship> {
+  if (a === b) {
+    throw new Error(`an entity cannot be its own ${relationshipType}`);
+  }
+  if (findSymmetricEdge(a, b, relationshipType)) {
+    throw new Error(`these entities are already linked as ${relationshipType}`);
+  }
+  if (findSymmetricEdge(a, b, opposite)) {
+    throw new Error(
+      `these entities are already linked as ${opposite}; a pair cannot be both ${relationshipType} and ${opposite}`,
+    );
+  }
+  return mockApi.relationships.create({
+    source_entity_id: a,
+    target_entity_id: b,
+    relationship_type: relationshipType,
+  });
 }
 
 export const mockApi = {
@@ -989,41 +1057,26 @@ export const mockApi = {
       persist();
       return delay(undefined);
     },
-    /** Mirrors politics::create_symmetric_edge in loreforge-core: rejects
-     * a self-link, a duplicate in either direction (same type), and a
-     * conflicting edge of the opposite symmetric type between the same
-     * pair, before delegating to the generic relationship create. */
+    /** Delegates to the shared `createMockSymmetricEdge` (generalized in
+     * Phase 10 -- see design-phase-10-organizations.md section 1.1; this
+     * function previously had its own copy of the validation, written in
+     * Phase 8). */
     async createSymmetricEdge(
       a: string,
       b: string,
       relationshipType: string,
     ): Promise<Relationship> {
-      if (a === b) {
-        throw new Error("a political entity cannot be its own ally or rival");
-      }
       if (relationshipType !== ALLIED_WITH && relationshipType !== RIVAL_OF) {
         throw new Error(`unsupported symmetric relationship type '${relationshipType}'`);
       }
-      if (findSymmetricEdge(a, b, relationshipType)) {
-        throw new Error(`these political entities are already linked as ${relationshipType}`);
-      }
       const opposite = relationshipType === ALLIED_WITH ? RIVAL_OF : ALLIED_WITH;
-      if (findSymmetricEdge(a, b, opposite)) {
-        throw new Error(
-          `these political entities are already linked as ${opposite}; a pair cannot be both allied and rivals`,
-        );
-      }
-      return mockApi.relationships.create({
-        source_entity_id: a,
-        target_entity_id: b,
-        relationship_type: relationshipType,
-      });
+      return createMockSymmetricEdge(a, b, relationshipType, opposite);
     },
     async listAllies(entityId: string): Promise<PoliticalEntity[]> {
-      return listSymmetricLinks(entityId, ALLIED_WITH);
+      return listSymmetricLinks(db.politicalEntities, entityId, ALLIED_WITH);
     },
     async listRivals(entityId: string): Promise<PoliticalEntity[]> {
-      return listSymmetricLinks(entityId, RIVAL_OF);
+      return listSymmetricLinks(db.politicalEntities, entityId, RIVAL_OF);
     },
   },
   religions: {
@@ -1113,6 +1166,114 @@ export const mockApi = {
       return delay(results);
     },
   },
+  organizations: {
+    async list(filter: OrganizationFilter = {}): Promise<Organization[]> {
+      let results = db.organizations;
+      if (filter.search?.trim()) {
+        const q = filter.search.trim().toLowerCase();
+        results = results.filter((o) => o.name.toLowerCase().includes(q));
+      }
+      if (filter.classification) {
+        results = results.filter((o) => o.classification === filter.classification);
+      }
+      results = [...results].sort((a, b) => a.name.localeCompare(b.name));
+      return delay(results);
+    },
+    async get(id: string): Promise<Organization> {
+      const found = db.organizations.find((o) => o.id === id);
+      if (!found) throw new Error(`organization ${id} not found`);
+      return delay(found);
+    },
+    async create(input: NewOrganization): Promise<Organization> {
+      if (!input.name.trim()) throw new Error("organization name is required");
+      if (input.parent_organization_id) {
+        const parentExists = db.organizations.some((o) => o.id === input.parent_organization_id);
+        if (!parentExists) throw new Error(`parent organization ${input.parent_organization_id} not found`);
+      }
+      const organization: Organization = {
+        id: uuid(),
+        name: input.name,
+        classification: input.classification ?? "other",
+        charter: input.charter ?? "",
+        parent_organization_id: input.parent_organization_id ?? null,
+        created_at: now(),
+        updated_at: now(),
+      };
+      db.organizations.push(organization);
+      recordRevision(organization.id, "create", null, organization);
+      persist();
+      return delay(organization);
+    },
+    async update(id: string, patch: OrganizationPatch): Promise<Organization> {
+      const organization = db.organizations.find((o) => o.id === id);
+      if (!organization) throw new Error(`organization ${id} not found`);
+
+      if (patch.parent_organization_id !== undefined && patch.parent_organization_id !== null) {
+        const newParentId = patch.parent_organization_id;
+        const parentExists = db.organizations.some((o) => o.id === newParentId);
+        if (!parentExists) throw new Error(`parent organization ${newParentId} not found`);
+        if (wouldCreateOrganizationCycle(id, newParentId)) {
+          throw new Error(
+            "cannot set an organization's parent to itself or one of its own subsidiaries",
+          );
+        }
+      }
+
+      const before = { ...organization };
+      Object.assign(organization, patch, { updated_at: now() });
+      recordRevision(id, "update", before, organization);
+      persist();
+      return delay(organization);
+    },
+    async delete(id: string): Promise<void> {
+      const before = db.organizations.find((o) => o.id === id);
+      if (!before) return delay(undefined);
+
+      // Reparent direct subsidiaries up one level (to the deleted
+      // organization's own parent, or to root) rather than
+      // orphaning/cascade-deleting the subtree -- mirrors
+      // organizations::delete in loreforge-core (FR3.3).
+      for (const child of db.organizations) {
+        if (child.parent_organization_id === id) {
+          child.parent_organization_id = before.parent_organization_id;
+        }
+      }
+
+      db.organizations = db.organizations.filter((o) => o.id !== id);
+      db.relationships = db.relationships.filter(
+        (r) => r.source_entity_id !== id && r.target_entity_id !== id,
+      );
+      recordRevision(id, "delete", before, null);
+      persist();
+      return delay(undefined);
+    },
+    async listSubsidiaries(parentId: string | null): Promise<Organization[]> {
+      const results = db.organizations
+        .filter((o) => o.parent_organization_id === parentId)
+        .sort((a, b) => a.name.localeCompare(b.name));
+      return delay(results);
+    },
+    /** Delegates to the shared `createMockSymmetricEdge`, the second
+     * consumer alongside Politics (design-phase-10-organizations.md
+     * section 1.1). */
+    async createSymmetricEdge(
+      a: string,
+      b: string,
+      relationshipType: string,
+    ): Promise<Relationship> {
+      if (relationshipType !== ORG_ALLIED_WITH && relationshipType !== ORG_RIVAL_OF) {
+        throw new Error(`unsupported symmetric relationship type '${relationshipType}'`);
+      }
+      const opposite = relationshipType === ORG_ALLIED_WITH ? ORG_RIVAL_OF : ORG_ALLIED_WITH;
+      return createMockSymmetricEdge(a, b, relationshipType, opposite);
+    },
+    async listAllies(entityId: string): Promise<Organization[]> {
+      return listSymmetricLinks(db.organizations, entityId, ORG_ALLIED_WITH);
+    },
+    async listRivals(entityId: string): Promise<Organization[]> {
+      return listSymmetricLinks(db.organizations, entityId, ORG_RIVAL_OF);
+    },
+  },
   dashboard: {
     async getMetrics(): Promise<DashboardMetrics> {
       const layersInUse = new Set<string>();
@@ -1130,6 +1291,7 @@ export const mockApi = {
       const militaryBranchesInUse = new Set(db.militaryUnits.map((u) => u.branch));
       const politicalClassificationsInUse = new Set(db.politicalEntities.map((p) => p.classification));
       const religionClassificationsInUse = new Set(db.religions.map((r) => r.classification));
+      const organizationClassificationsInUse = new Set(db.organizations.map((o) => o.classification));
       return delay({
         characters_total: db.characters.length,
         characters_main: db.characters.filter((c) => c.role === "main").length,
@@ -1156,6 +1318,8 @@ export const mockApi = {
         political_classifications_in_use: politicalClassificationsInUse.size,
         religions_total: db.religions.length,
         religion_classifications_in_use: religionClassificationsInUse.size,
+        organizations_total: db.organizations.length,
+        organization_classifications_in_use: organizationClassificationsInUse.size,
       });
     },
   },

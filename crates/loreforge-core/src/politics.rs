@@ -1,10 +1,10 @@
 use crate::error::{LoreError, Result};
 use crate::models::{
-    NewPoliticalEntity, NewRelationship, PoliticalEntity, PoliticalEntityFilter,
-    PoliticalEntityPatch, Relationship, ALLIED_WITH, RIVAL_OF,
+    NewPoliticalEntity, PoliticalEntity, PoliticalEntityFilter, PoliticalEntityPatch,
+    Relationship, ALLIED_WITH, RIVAL_OF,
 };
-use crate::relationships;
 use crate::revisions::{self, Action, RecordType};
+use crate::symmetric;
 use chrono::Utc;
 use rusqlite::{params, Connection, OptionalExtension, Row};
 use uuid::Uuid;
@@ -248,122 +248,48 @@ pub fn delete(conn: &Connection, id: &str) -> Result<()> {
     }
 }
 
-/// Finds an existing edge of `relationship_type` between `a` and `b`, in
-/// either direction. Returns the relationship id if found. This is the
-/// direction-agnostic lookup that makes ALLIED_WITH/RIVAL_OF symmetric
-/// despite the underlying table always storing a source/target pair
-/// (design-phase-8-politics.md section 1.1, point 1).
-fn find_edge_either_direction(
-    conn: &Connection,
-    a: &str,
-    b: &str,
-    relationship_type: &str,
-) -> Result<Option<String>> {
-    conn.query_row(
-        "SELECT id FROM relationships
-         WHERE relationship_type = ?1 AND deleted_at IS NULL
-         AND ((source_entity_id = ?2 AND target_entity_id = ?3)
-              OR (source_entity_id = ?3 AND target_entity_id = ?2))",
-        params![relationship_type, a, b],
-        |row| row.get::<_, String>(0),
-    )
-    .optional()
-    .map_err(LoreError::from)
-}
-
 /// Creates a symmetric edge (`ALLIED_WITH` or `RIVAL_OF`) between two
-/// political entities `a` and `b`. Validates, in order, before any write
-/// happens:
-///   1. No self-link (delegated to `relationships::create`'s existing
-///      guard, but checked here too so the cycle/duplicate checks below
-///      don't need to special-case it).
-///   2. No existing edge of the *same* type already exists between this
-///      pair, in either direction (FR3.2).
-///   3. No existing edge of the *opposite* symmetric type exists between
-///      this pair, in either direction (FR3.3) -- a pair cannot be both
-///      allied and rivals at once.
-/// This is the one place the frontend needs to know "these two
-/// relationship types have extra rules"; every other relationship type
-/// in the app is created directly through the generic
-/// `relationships::create`, which stays unaware of politics-specific
-/// rules (design-phase-8-politics.md section 1.1, mirroring Phase 5's
-/// `create_requires_edge`/Phase 6+7's cycle-check wrappers).
+/// political entities `a` and `b`. Delegates to the shared
+/// `symmetric::create_symmetric_edge` (extracted in Phase 10 after
+/// Organizations became a second consumer of this exact validation shape
+/// -- see design-phase-10-organizations.md section 1; this function
+/// previously had its own copy of the duplicate-check and
+/// mutual-exclusivity logic, written in Phase 8).
 pub fn create_symmetric_edge(
     conn: &Connection,
     a: &str,
     b: &str,
     relationship_type: &str,
 ) -> Result<Relationship> {
-    if a == b {
-        return Err(LoreError::InvalidInput(
-            "a political entity cannot be its own ally or rival".into(),
-        ));
-    }
     if relationship_type != ALLIED_WITH && relationship_type != RIVAL_OF {
         return Err(LoreError::InvalidInput(format!(
             "unsupported symmetric relationship type '{relationship_type}'"
         )));
     }
-
-    if find_edge_either_direction(conn, a, b, relationship_type)?.is_some() {
-        return Err(LoreError::InvalidInput(format!(
-            "these political entities are already linked as {relationship_type}"
-        )));
-    }
-
     let opposite = if relationship_type == ALLIED_WITH { RIVAL_OF } else { ALLIED_WITH };
-    if find_edge_either_direction(conn, a, b, opposite)?.is_some() {
-        return Err(LoreError::InvalidInput(format!(
-            "these political entities are already linked as {opposite}; a pair cannot be both allied and rivals"
-        )));
-    }
-
-    relationships::create(
-        conn,
-        NewRelationship {
-            source_entity_id: a.to_string(),
-            target_entity_id: b.to_string(),
-            relationship_type: relationship_type.to_string(),
-            label: None,
-            strength: None,
-        },
-    )
+    symmetric::create_symmetric_edge(conn, a, b, relationship_type, opposite)
 }
 
 /// The political entities allied with `entity_id`, resolved regardless of
 /// which side of the underlying relationship row `entity_id` happens to
-/// be on (FR3.4, NFR3).
+/// be on (FR3.4, NFR3). Delegates to the shared
+/// `symmetric::list_symmetric_link_ids` for the direction-agnostic id
+/// lookup, then resolves each id into a full `PoliticalEntity` via this
+/// module's own `get()`.
 pub fn list_allies(conn: &Connection, entity_id: &str) -> Result<Vec<PoliticalEntity>> {
-    list_symmetric_links(conn, entity_id, ALLIED_WITH)
+    symmetric::list_symmetric_link_ids(conn, entity_id, ALLIED_WITH)?
+        .into_iter()
+        .map(|id| get(conn, &id))
+        .collect()
 }
 
 /// The political entities that are rivals of `entity_id`. See
 /// `list_allies`.
 pub fn list_rivals(conn: &Connection, entity_id: &str) -> Result<Vec<PoliticalEntity>> {
-    list_symmetric_links(conn, entity_id, RIVAL_OF)
-}
-
-fn list_symmetric_links(
-    conn: &Connection,
-    entity_id: &str,
-    relationship_type: &str,
-) -> Result<Vec<PoliticalEntity>> {
-    let mut stmt = conn.prepare(
-        "SELECT source_entity_id, target_entity_id FROM relationships
-         WHERE relationship_type = ?1 AND deleted_at IS NULL
-         AND (source_entity_id = ?2 OR target_entity_id = ?2)",
-    )?;
-    let rows = stmt.query_map(params![relationship_type, entity_id], |row| {
-        Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
-    })?;
-
-    let mut out = Vec::new();
-    for row in rows {
-        let (source, target) = row?;
-        let other_side = if source == entity_id { target } else { source };
-        out.push(get(conn, &other_side)?);
-    }
-    Ok(out)
+    symmetric::list_symmetric_link_ids(conn, entity_id, RIVAL_OF)?
+        .into_iter()
+        .map(|id| get(conn, &id))
+        .collect()
 }
 
 #[cfg(test)]
@@ -373,6 +299,7 @@ mod tests {
     use crate::db;
     use crate::locations;
     use crate::models::{NewCharacter, NewLocation, NewRelationship, CONTROLS, LEADS};
+    use crate::relationships;
 
     fn setup() -> Connection {
         db::open_in_memory().expect("open in-memory db")
