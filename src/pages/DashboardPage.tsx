@@ -5,7 +5,6 @@ const COMING_SOON_CARDS = [
   { title: "Story Progress", icon: "◔" },
   { title: "Universe", icon: "✦" },
   { title: "Ships", icon: "◆" },
-  { title: "Politics", icon: "⚖" },
   { title: "Religions", icon: "☨" },
   { title: "Organizations", icon: "⬡" },
   { title: "Mysteries", icon: "?" },
@@ -161,6 +160,20 @@ export function DashboardPage() {
               : [
                   { label: "Total", value: metrics?.military_units_total ?? 0 },
                   { label: "Branches Used", value: metrics?.military_branches_in_use ?? 0 },
+                ]
+          }
+        />
+
+        <MetricCard
+          title="Politics"
+          icon="⚖"
+          to="/politics"
+          metrics={
+            isLoading
+              ? undefined
+              : [
+                  { label: "Total", value: metrics?.political_entities_total ?? 0 },
+                  { label: "Classifications Used", value: metrics?.political_classifications_in_use ?? 0 },
                 ]
           }
         />

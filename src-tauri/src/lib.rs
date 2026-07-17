@@ -79,6 +79,14 @@ pub fn run() {
       commands::update_military_unit,
       commands::delete_military_unit,
       commands::list_subordinate_units,
+      commands::list_political_entities,
+      commands::get_political_entity,
+      commands::create_political_entity,
+      commands::update_political_entity,
+      commands::delete_political_entity,
+      commands::create_symmetric_edge,
+      commands::list_political_allies,
+      commands::list_political_rivals,
     ])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");

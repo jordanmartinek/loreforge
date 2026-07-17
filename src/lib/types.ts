@@ -119,6 +119,8 @@ export interface DashboardMetrics {
   species_classifications_in_use: number;
   military_units_total: number;
   military_branches_in_use: number;
+  political_entities_total: number;
+  political_classifications_in_use: number;
 }
 
 export type SaveStatus = "saved" | "saving" | "offline";
@@ -529,4 +531,77 @@ export interface MilitaryUnitPatch {
 export interface MilitaryUnitFilter {
   search?: string;
   branch?: string;
+}
+
+// ---------------------------------------------------------------------
+// Phase 8: Politics
+// ---------------------------------------------------------------------
+
+// A character leading a political entity (source = character, target =
+// political entity).
+export const LEADS = "leads";
+
+// A political entity controlling a location as territory (source =
+// political entity, target = location).
+export const CONTROLS = "controls";
+
+// A symmetric alliance between two political entities. Enforced symmetric
+// (no duplicate in either direction, mutually exclusive with RIVAL_OF
+// between the same pair) at the application layer, not by the schema.
+export const ALLIED_WITH = "allied_with";
+
+// A symmetric rivalry between two political entities. See ALLIED_WITH.
+export const RIVAL_OF = "rival_of";
+
+export type PoliticalClassification =
+  | "government"
+  | "political_party"
+  | "faction"
+  | "alliance"
+  | "guild"
+  | "other";
+
+export const POLITICAL_CLASSIFICATIONS: PoliticalClassification[] = [
+  "government",
+  "political_party",
+  "faction",
+  "alliance",
+  "guild",
+  "other",
+];
+
+export interface PoliticalEntity {
+  id: string;
+  name: string;
+  classification: string;
+  ideology: string;
+  founded_date: string | null;
+  date_precision: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface NewPoliticalEntity {
+  name: string;
+  classification?: string;
+  ideology?: string;
+  founded_date?: string | null;
+  date_precision?: string;
+}
+
+// founded_date uses `string | null | undefined` to mirror the Rust
+// `Option<Option<String>>` "explicit null" pattern: `undefined` means
+// "don't touch the founding date", `null` means "clear it" (same
+// convention as TechnologyPatch.introduced_date).
+export interface PoliticalEntityPatch {
+  name?: string;
+  classification?: string;
+  ideology?: string;
+  founded_date?: string | null;
+  date_precision?: string;
+}
+
+export interface PoliticalEntityFilter {
+  search?: string;
+  classification?: string;
 }
