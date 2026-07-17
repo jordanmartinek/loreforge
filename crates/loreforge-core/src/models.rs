@@ -176,6 +176,8 @@ pub struct DashboardMetrics {
     pub military_branches_in_use: i64,
     pub political_entities_total: i64,
     pub political_classifications_in_use: i64,
+    pub religions_total: i64,
+    pub religion_classifications_in_use: i64,
 }
 
 /// The relationship_type used to link a character to an event they
@@ -581,6 +583,72 @@ pub const POLITICAL_CLASSIFICATIONS: &[&str] = &[
     "guild",
     "other",
 ];
+
+// ---------------------------------------------------------------------
+// Phase 9: Religions
+// ---------------------------------------------------------------------
+
+/// A character following a religion (source = character entity id, target
+/// = religion entity id).
+pub const FOLLOWS: &str = "follows";
+
+/// A religion considering a location a holy site (source = religion
+/// entity id, target = location entity id).
+pub const HOLY_SITE: &str = "holy_site";
+
+pub const RELIGION_CLASSIFICATIONS: &[&str] = &[
+    "organized_religion",
+    "folk_tradition",
+    "cult",
+    "philosophy",
+    "pantheon_cult",
+    "other",
+];
+
+/// Full religion DTO: generic entity fields flattened together with
+/// religion-specific detail fields, including the self-referential
+/// `parent_religion_id` that makes the schism/denomination structure
+/// hierarchical -- the same structural shape as Phase 4/6/7's
+/// `parent_location_id`/`parent_species_id`/`parent_unit_id`
+/// (design-phase-9-religions.md section 2).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Religion {
+    pub id: String,
+    pub name: String,
+    pub classification: String,
+    pub tenets: String,
+    pub parent_religion_id: Option<String>,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct NewReligion {
+    pub name: String,
+    pub classification: Option<String>,
+    pub tenets: Option<String>,
+    pub parent_religion_id: Option<String>,
+}
+
+/// Patch payload for updating a religion. `None` means "leave unchanged".
+/// `parent_religion_id` uses the `Option<Option<String>>` "explicit null"
+/// pattern (like `SpeciesPatch::parent_species_id`/
+/// `MilitaryUnitPatch::parent_unit_id`) so a client can distinguish
+/// "don't touch the parent" from "move this religion to the root of its
+/// tradition" (set to `Some(None)`).
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct ReligionPatch {
+    pub name: Option<String>,
+    pub classification: Option<String>,
+    pub tenets: Option<String>,
+    pub parent_religion_id: Option<Option<String>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct ReligionFilter {
+    pub search: Option<String>,
+    pub classification: Option<String>,
+}
 
 /// Full political entity DTO: generic entity fields flattened together
 /// with political-entity-specific detail fields. Unlike Phase 4/6/7's

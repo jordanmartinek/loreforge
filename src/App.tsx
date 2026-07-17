@@ -10,6 +10,7 @@ import { GraphPage } from "./pages/GraphPage";
 import { LocationsPage } from "./pages/LocationsPage";
 import { MilitaryPage } from "./pages/MilitaryPage";
 import { PoliticsPage } from "./pages/PoliticsPage";
+import { ReligionsPage } from "./pages/ReligionsPage";
 import { SpeciesPage } from "./pages/SpeciesPage";
 import { TechnologyPage } from "./pages/TechnologyPage";
 import { TimelinePage } from "./pages/TimelinePage";
@@ -26,6 +27,7 @@ const TITLES: Record<string, string> = {
   "/species": "Species Codex",
   "/military": "Military",
   "/politics": "Politics",
+  "/religions": "Religions",
 };
 
 function useSyncThemeClass() {
@@ -118,6 +120,14 @@ function App() {
           element={
             <AppShell title={TITLES["/politics"]}>
               <PoliticsPage />
+            </AppShell>
+          }
+        />
+        <Route
+          path="/religions"
+          element={
+            <AppShell title={TITLES["/religions"]}>
+              <ReligionsPage />
             </AppShell>
           }
         />

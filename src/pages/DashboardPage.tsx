@@ -5,7 +5,6 @@ const COMING_SOON_CARDS = [
   { title: "Story Progress", icon: "◔" },
   { title: "Universe", icon: "✦" },
   { title: "Ships", icon: "◆" },
-  { title: "Religions", icon: "☨" },
   { title: "Organizations", icon: "⬡" },
   { title: "Mysteries", icon: "?" },
   { title: "Ideas", icon: "✱" },
@@ -174,6 +173,20 @@ export function DashboardPage() {
               : [
                   { label: "Total", value: metrics?.political_entities_total ?? 0 },
                   { label: "Classifications Used", value: metrics?.political_classifications_in_use ?? 0 },
+                ]
+          }
+        />
+
+        <MetricCard
+          title="Religions"
+          icon="☨"
+          to="/religions"
+          metrics={
+            isLoading
+              ? undefined
+              : [
+                  { label: "Total", value: metrics?.religions_total ?? 0 },
+                  { label: "Classifications Used", value: metrics?.religion_classifications_in_use ?? 0 },
                 ]
           }
         />

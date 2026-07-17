@@ -121,6 +121,8 @@ export interface DashboardMetrics {
   military_branches_in_use: number;
   political_entities_total: number;
   political_classifications_in_use: number;
+  religions_total: number;
+  religion_classifications_in_use: number;
 }
 
 export type SaveStatus = "saved" | "saving" | "offline";
@@ -602,6 +604,68 @@ export interface PoliticalEntityPatch {
 }
 
 export interface PoliticalEntityFilter {
+  search?: string;
+  classification?: string;
+}
+
+// ---------------------------------------------------------------------
+// Phase 9: Religions
+// ---------------------------------------------------------------------
+
+// A character following a religion (source = character, target =
+// religion).
+export const FOLLOWS = "follows";
+
+// A religion considering a location a holy site (source = religion,
+// target = location).
+export const HOLY_SITE = "holy_site";
+
+export type ReligionClassification =
+  | "organized_religion"
+  | "folk_tradition"
+  | "cult"
+  | "philosophy"
+  | "pantheon_cult"
+  | "other";
+
+export const RELIGION_CLASSIFICATIONS: ReligionClassification[] = [
+  "organized_religion",
+  "folk_tradition",
+  "cult",
+  "philosophy",
+  "pantheon_cult",
+  "other",
+];
+
+export interface Religion {
+  id: string;
+  name: string;
+  classification: string;
+  tenets: string;
+  parent_religion_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface NewReligion {
+  name: string;
+  classification?: string;
+  tenets?: string;
+  parent_religion_id?: string | null;
+}
+
+// parent_religion_id uses `string | null | undefined` to mirror the Rust
+// `Option<Option<String>>` "explicit null" pattern: `undefined` means
+// "don't touch the parent", `null` means "move to root" (same convention
+// as SpeciesPatch.parent_species_id / MilitaryUnitPatch.parent_unit_id).
+export interface ReligionPatch {
+  name?: string;
+  classification?: string;
+  tenets?: string;
+  parent_religion_id?: string | null;
+}
+
+export interface ReligionFilter {
   search?: string;
   classification?: string;
 }

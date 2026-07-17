@@ -1,4 +1,5 @@
 use crate::error::{LoreError, Result};
+use crate::hierarchy;
 use crate::models::{MilitaryUnit, MilitaryUnitFilter, MilitaryUnitPatch, NewMilitaryUnit};
 use crate::revisions::{self, Action, RecordType};
 use chrono::Utc;
@@ -103,29 +104,17 @@ pub fn list(conn: &Connection, filter: &MilitaryUnitFilter) -> Result<Vec<Milita
 /// Returns true if setting `candidate_id`'s parent to `new_parent_id`
 /// would make `candidate_id` its own ancestor -- i.e. `new_parent_id` is
 /// `candidate_id` itself, or one of `candidate_id`'s own descendants
-/// (FR1.3/FR3.3). This is the third copy of this exact chain-walk
-/// algorithm (after `locations::would_create_cycle` and
-/// `species::would_create_cycle`); see design-phase-7-military.md section
-/// 3.2 for why it is not (yet) extracted into a shared generic helper.
+/// (FR1.3/FR3.3). This was the third independent copy of this exact
+/// chain-walk algorithm (after `locations::would_create_cycle` and
+/// `species::would_create_cycle`); Phase 9 extracted the shared logic
+/// into `hierarchy.rs` once a fourth caller (Religions) arrived -- see
+/// design-phase-9-religions.md section 1 (and design-phase-7-military.md
+/// section 3.2 for why it wasn't extracted at the time this function was
+/// first written).
 pub fn would_create_cycle(conn: &Connection, candidate_id: &str, new_parent_id: &str) -> Result<bool> {
-    if candidate_id == new_parent_id {
-        return Ok(true);
-    }
-
-    let mut seen = std::collections::HashSet::new();
-    let mut current = Some(new_parent_id.to_string());
-
-    while let Some(id) = current {
-        if id == candidate_id {
-            return Ok(true);
-        }
-        if !seen.insert(id.clone()) {
-            break; // already-existing cycle elsewhere; don't loop forever
-        }
-        current = get(conn, &id).ok().and_then(|u| u.parent_unit_id);
-    }
-
-    Ok(false)
+    Ok(hierarchy::would_create_cycle(candidate_id, new_parent_id, |id| {
+        get(conn, id).ok().and_then(|u| u.parent_unit_id)
+    }))
 }
 
 pub fn create(conn: &Connection, input: NewMilitaryUnit) -> Result<MilitaryUnit> {

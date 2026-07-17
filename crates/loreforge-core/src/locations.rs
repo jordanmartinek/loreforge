@@ -1,4 +1,5 @@
 use crate::error::{LoreError, Result};
+use crate::hierarchy;
 use crate::models::{Location, LocationFilter, LocationPatch, NewLocation};
 use crate::revisions::{self, Action, RecordType};
 use chrono::Utc;
@@ -61,27 +62,14 @@ pub fn get_ancestry_chain(conn: &Connection, starting_id: &str) -> Result<Vec<Lo
 /// Returns true if setting `candidate_id`'s parent to `new_parent_id` would
 /// make `candidate_id` its own ancestor -- i.e. `new_parent_id` is
 /// `candidate_id` itself, or one of `candidate_id`'s own descendants
-/// (FR1.3/FR3.3). Checked by walking up from `new_parent_id`: if we ever
-/// reach `candidate_id`, the move would create a cycle.
+/// (FR1.3/FR3.3). Delegates to the shared single-parent-tree chain-walk in
+/// `hierarchy.rs` (extracted in Phase 9 after this exact algorithm had
+/// been independently reimplemented across Locations/Species/Military --
+/// see design-phase-9-religions.md section 1).
 pub fn would_create_cycle(conn: &Connection, candidate_id: &str, new_parent_id: &str) -> Result<bool> {
-    if candidate_id == new_parent_id {
-        return Ok(true);
-    }
-
-    let mut seen = std::collections::HashSet::new();
-    let mut current = Some(new_parent_id.to_string());
-
-    while let Some(id) = current {
-        if id == candidate_id {
-            return Ok(true);
-        }
-        if !seen.insert(id.clone()) {
-            break; // already-existing cycle elsewhere; don't loop forever
-        }
-        current = get(conn, &id).ok().and_then(|l| l.parent_location_id);
-    }
-
-    Ok(false)
+    Ok(hierarchy::would_create_cycle(candidate_id, new_parent_id, |id| {
+        get(conn, id).ok().and_then(|l| l.parent_location_id)
+    }))
 }
 
 /// Lists the direct children of `parent_id`, or root-level locations
