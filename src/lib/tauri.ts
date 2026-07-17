@@ -23,10 +23,14 @@ import type {
   NewEvent,
   NewLocation,
   NewRelationship,
+  NewSpecies,
   NewTechnology,
   Relationship,
   RelationshipPatch,
   RevisionEntry,
+  Species,
+  SpeciesFilter,
+  SpeciesPatch,
   Technology,
   TechnologyFilter,
   TechnologyPatch,
@@ -109,6 +113,16 @@ export const api = {
         dependentId,
         prerequisiteId,
       }),
+  },
+  species: {
+    list: (filter: SpeciesFilter = {}) => invoke<Species[]>("list_species", { filter }),
+    get: (id: string) => invoke<Species>("get_species_entry", { id }),
+    create: (input: NewSpecies) => invoke<Species>("create_species", { input }),
+    update: (id: string, patch: SpeciesPatch) =>
+      invoke<Species>("update_species", { id, patch }),
+    delete: (id: string) => invoke<void>("delete_species", { id }),
+    listSubspecies: (parentId: string | null) =>
+      invoke<Species[]>("list_subspecies", { parentId }),
   },
   dashboard: {
     getMetrics: () => invoke<DashboardMetrics>("get_dashboard_metrics"),

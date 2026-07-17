@@ -2,7 +2,10 @@ use crate::canon;
 use crate::error::Result;
 use crate::events;
 use crate::locations;
-use crate::models::{CanonFilter, DashboardMetrics, EventFilter, LocationFilter, TechnologyFilter};
+use crate::models::{
+    CanonFilter, DashboardMetrics, EventFilter, LocationFilter, SpeciesFilter, TechnologyFilter,
+};
+use crate::species;
 use crate::technologies;
 use rusqlite::Connection;
 use std::collections::HashSet;
@@ -94,6 +97,12 @@ pub fn get_metrics(conn: &Connection) -> Result<DashboardMetrics> {
     let technology_categories_seen: HashSet<String> =
         all_technologies.iter().map(|t| t.category.clone()).collect();
 
+    // Species metrics (Phase 6).
+    let all_species = species::list(conn, &SpeciesFilter::default())?;
+    let species_total = all_species.len() as i64;
+    let species_classifications_seen: HashSet<String> =
+        all_species.iter().map(|s| s.classification.clone()).collect();
+
     Ok(DashboardMetrics {
         characters_total,
         characters_main,
@@ -112,6 +121,8 @@ pub fn get_metrics(conn: &Connection) -> Result<DashboardMetrics> {
         location_types_in_use: location_types_seen.len() as i64,
         technologies_total,
         technology_categories_in_use: technology_categories_seen.len() as i64,
+        species_total,
+        species_classifications_in_use: species_classifications_seen.len() as i64,
     })
 }
 
@@ -123,8 +134,9 @@ mod tests {
     use crate::db;
     use crate::locations;
     use crate::models::{
-        CharacterPatch, NewCanonEntry, NewCharacter, NewEvent, NewLocation, NewTechnology,
+        CharacterPatch, NewCanonEntry, NewCharacter, NewEvent, NewLocation, NewSpecies, NewTechnology,
     };
+    use crate::species;
     use crate::technologies;
 
     #[test]
@@ -211,5 +223,17 @@ mod tests {
         let metrics = get_metrics(&conn).unwrap();
         assert_eq!(metrics.technologies_total, 3);
         assert_eq!(metrics.technology_categories_in_use, 2); // void_technology, weapons
+    }
+
+    #[test]
+    fn metrics_reflect_live_species_data() {
+        let conn = db::open_in_memory().unwrap();
+        species::create(&conn, NewSpecies { name: "Elari".into(), classification: Some("sentient_humanoid".into()), ..Default::default() }).unwrap();
+        species::create(&conn, NewSpecies { name: "Void Wisp".into(), classification: Some("synthetic".into()), ..Default::default() }).unwrap();
+        species::create(&conn, NewSpecies { name: "Sky Ray".into(), classification: Some("non_sentient_fauna".into()), ..Default::default() }).unwrap();
+
+        let metrics = get_metrics(&conn).unwrap();
+        assert_eq!(metrics.species_total, 3);
+        assert_eq!(metrics.species_classifications_in_use, 3);
     }
 }

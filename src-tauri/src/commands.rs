@@ -2,12 +2,13 @@ use crate::state::AppState;
 use loreforge_core::models::{
     CanonEntry, CanonEntryPatch, CanonFilter, Character, CharacterFilter, CharacterPatch,
     DashboardMetrics, Event, EventFilter, EventPatch, Location, LocationFilter, LocationPatch,
-    NewCanonEntry, NewCharacter, NewEvent, NewLocation, NewRelationship, NewTechnology,
-    Relationship, RelationshipPatch, RevisionEntry, Technology, TechnologyFilter,
-    TechnologyPatch,
+    NewCanonEntry, NewCharacter, NewEvent, NewLocation, NewRelationship, NewSpecies,
+    NewTechnology, Relationship, RelationshipPatch, RevisionEntry, Species, SpeciesFilter,
+    SpeciesPatch, Technology, TechnologyFilter, TechnologyPatch,
 };
 use loreforge_core::{
-    canon, characters, dashboard, events, locations, relationships, revisions, technologies,
+    canon, characters, dashboard, events, locations, relationships, revisions, species,
+    technologies,
 };
 use tauri::State;
 
@@ -311,4 +312,54 @@ pub fn create_requires_edge(
     let conn = state.conn.lock().map_err(|e| e.to_string())?;
     technologies::create_requires_edge(&conn, &dependent_id, &prerequisite_id)
         .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn list_species(
+    state: State<AppState>,
+    filter: SpeciesFilter,
+) -> Result<Vec<Species>, String> {
+    let conn = state.conn.lock().map_err(|e| e.to_string())?;
+    species::list(&conn, &filter).map_err(|e| e.to_string())
+}
+
+// Named `get_species_entry`, not `get_species`, to avoid the ambiguity a
+// singular-vs-plural command name would otherwise read fine as either "get
+// this one species" or "get all species" (design-phase-6-species.md
+// section 2). Internally this still just calls `species::get`.
+#[tauri::command]
+pub fn get_species_entry(state: State<AppState>, id: String) -> Result<Species, String> {
+    let conn = state.conn.lock().map_err(|e| e.to_string())?;
+    species::get(&conn, &id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn create_species(state: State<AppState>, input: NewSpecies) -> Result<Species, String> {
+    let conn = state.conn.lock().map_err(|e| e.to_string())?;
+    species::create(&conn, input).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn update_species(
+    state: State<AppState>,
+    id: String,
+    patch: SpeciesPatch,
+) -> Result<Species, String> {
+    let conn = state.conn.lock().map_err(|e| e.to_string())?;
+    species::update(&conn, &id, patch).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn delete_species(state: State<AppState>, id: String) -> Result<(), String> {
+    let conn = state.conn.lock().map_err(|e| e.to_string())?;
+    species::delete(&conn, &id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn list_subspecies(
+    state: State<AppState>,
+    parent_id: Option<String>,
+) -> Result<Vec<Species>, String> {
+    let conn = state.conn.lock().map_err(|e| e.to_string())?;
+    species::list_subspecies(&conn, parent_id.as_deref()).map_err(|e| e.to_string())
 }

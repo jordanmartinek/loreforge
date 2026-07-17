@@ -115,6 +115,8 @@ export interface DashboardMetrics {
   location_types_in_use: number;
   technologies_total: number;
   technology_categories_in_use: number;
+  species_total: number;
+  species_classifications_in_use: number;
 }
 
 export type SaveStatus = "saved" | "saving" | "offline";
@@ -391,4 +393,68 @@ export interface TechnologyPatch {
 export interface TechnologyFilter {
   search?: string;
   category?: string;
+}
+
+// ---------------------------------------------------------------------
+// Phase 6: Species Codex
+// ---------------------------------------------------------------------
+
+// A character belonging to a species. Lives in the ordinary relationships
+// table -- no new join table (mirrors loreforge_core::models::MEMBER_OF).
+export const MEMBER_OF = "member_of";
+
+// A species originating from / commonly found at a location (source =
+// species, target = location).
+export const NATIVE_TO = "native_to";
+
+export type SpeciesClassification =
+  | "sentient_humanoid"
+  | "sentient_non_humanoid"
+  | "non_sentient_fauna"
+  | "non_sentient_flora"
+  | "synthetic"
+  | "hybrid"
+  | "other";
+
+export const SPECIES_CLASSIFICATIONS: SpeciesClassification[] = [
+  "sentient_humanoid",
+  "sentient_non_humanoid",
+  "non_sentient_fauna",
+  "non_sentient_flora",
+  "synthetic",
+  "hybrid",
+  "other",
+];
+
+export interface Species {
+  id: string;
+  name: string;
+  classification: string;
+  biology: string;
+  parent_species_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface NewSpecies {
+  name: string;
+  classification?: string;
+  biology?: string;
+  parent_species_id?: string | null;
+}
+
+// parent_species_id uses `string | null | undefined` to mirror the Rust
+// `Option<Option<String>>` "explicit null" pattern: `undefined` means
+// "don't touch the parent", `null` means "move to root" (same convention
+// as LocationPatch.parent_location_id / TechnologyPatch.introduced_date).
+export interface SpeciesPatch {
+  name?: string;
+  classification?: string;
+  biology?: string;
+  parent_species_id?: string | null;
+}
+
+export interface SpeciesFilter {
+  search?: string;
+  classification?: string;
 }

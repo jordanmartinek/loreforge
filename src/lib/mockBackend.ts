@@ -26,10 +26,14 @@ import type {
   NewEvent,
   NewLocation,
   NewRelationship,
+  NewSpecies,
   NewTechnology,
   Relationship,
   RelationshipPatch,
   RevisionEntry,
+  Species,
+  SpeciesFilter,
+  SpeciesPatch,
   Technology,
   TechnologyFilter,
   TechnologyPatch,
@@ -53,6 +57,7 @@ interface MockDb {
   canonEntries: CanonEntry[];
   locations: Location[];
   technologies: Technology[];
+  species: Species[];
   // A shared, append-only revision log that every entity type below writes
   // to on create/update/delete -- mirrors the real backend's `revisions`
   // table (design-phase-3-canon.md section 3.1), so RevisionHistoryPanel
@@ -69,6 +74,7 @@ function seedDb(): MockDb {
     canonEntries: [],
     locations: [],
     technologies: [],
+    species: [],
     revisions: [],
   };
 }
@@ -123,6 +129,28 @@ function wouldCreateLocationCycle(candidateId: string, newParentId: string): boo
   return false;
 }
 
+/** Mirrors species::would_create_cycle in loreforge-core: same
+ * single-parent chain-walk as `wouldCreateLocationCycle` above (taxonomy
+ * is a strict tree, per design-phase-6-species.md section 1), just walking
+ * `db.species` / `parent_species_id` instead of `db.locations` /
+ * `parent_location_id`. */
+function wouldCreateSpeciesCycle(candidateId: string, newParentId: string): boolean {
+  if (candidateId === newParentId) return true;
+
+  const seen = new Set<string>();
+  let currentId: string | null = newParentId;
+
+  while (currentId !== null) {
+    if (currentId === candidateId) return true;
+    if (seen.has(currentId)) break; // pre-existing cycle elsewhere; don't loop forever
+    seen.add(currentId);
+    const current = db.species.find((s) => s.id === currentId);
+    currentId = current?.parent_species_id ?? null;
+  }
+
+  return false;
+}
+
 let revisionCounter = 0;
 
 /** Appends a revision row, mirroring loreforge_core::revisions::record.
@@ -154,8 +182,9 @@ function loadDb(): MockDb {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
-      // Merge with seedDb() so a mock DB persisted before the `events` field
-      // existed (Phase 1) doesn't crash Phase 2 code with an undefined array.
+      // Merge with seedDb() so a mock DB persisted before newer fields
+      // existed (e.g. `species`, added in Phase 6) doesn't crash with an
+      // undefined array -- same rationale as the original Phase 1/2 note.
       return { ...seedDb(), ...(JSON.parse(raw) as Partial<MockDb>) };
     }
   } catch {
@@ -629,6 +658,93 @@ export const mockApi = {
       });
     },
   },
+  species: {
+    async list(filter: SpeciesFilter = {}): Promise<Species[]> {
+      let results = db.species;
+      if (filter.search?.trim()) {
+        const q = filter.search.trim().toLowerCase();
+        results = results.filter((s) => s.name.toLowerCase().includes(q));
+      }
+      if (filter.classification) {
+        results = results.filter((s) => s.classification === filter.classification);
+      }
+      results = [...results].sort((a, b) => a.name.localeCompare(b.name));
+      return delay(results);
+    },
+    async get(id: string): Promise<Species> {
+      const found = db.species.find((s) => s.id === id);
+      if (!found) throw new Error(`species ${id} not found`);
+      return delay(found);
+    },
+    async create(input: NewSpecies): Promise<Species> {
+      if (!input.name.trim()) throw new Error("species name is required");
+      if (input.parent_species_id) {
+        const parentExists = db.species.some((s) => s.id === input.parent_species_id);
+        if (!parentExists) throw new Error(`parent species ${input.parent_species_id} not found`);
+      }
+      const species: Species = {
+        id: uuid(),
+        name: input.name,
+        classification: input.classification ?? "other",
+        biology: input.biology ?? "",
+        parent_species_id: input.parent_species_id ?? null,
+        created_at: now(),
+        updated_at: now(),
+      };
+      db.species.push(species);
+      recordRevision(species.id, "create", null, species);
+      persist();
+      return delay(species);
+    },
+    async update(id: string, patch: SpeciesPatch): Promise<Species> {
+      const species = db.species.find((s) => s.id === id);
+      if (!species) throw new Error(`species ${id} not found`);
+
+      if (patch.parent_species_id !== undefined && patch.parent_species_id !== null) {
+        const newParentId = patch.parent_species_id;
+        const parentExists = db.species.some((s) => s.id === newParentId);
+        if (!parentExists) throw new Error(`parent species ${newParentId} not found`);
+        if (wouldCreateSpeciesCycle(id, newParentId)) {
+          throw new Error(
+            "cannot set a species' parent to itself or one of its own descendants",
+          );
+        }
+      }
+
+      const before = { ...species };
+      Object.assign(species, patch, { updated_at: now() });
+      recordRevision(id, "update", before, species);
+      persist();
+      return delay(species);
+    },
+    async delete(id: string): Promise<void> {
+      const before = db.species.find((s) => s.id === id);
+      if (!before) return delay(undefined);
+
+      // Reparent direct subspecies up one level (to the deleted species'
+      // own parent, or to root) rather than orphaning/cascade-deleting the
+      // subtree -- mirrors species::delete in loreforge-core (FR3.1).
+      for (const child of db.species) {
+        if (child.parent_species_id === id) {
+          child.parent_species_id = before.parent_species_id;
+        }
+      }
+
+      db.species = db.species.filter((s) => s.id !== id);
+      db.relationships = db.relationships.filter(
+        (r) => r.source_entity_id !== id && r.target_entity_id !== id,
+      );
+      recordRevision(id, "delete", before, null);
+      persist();
+      return delay(undefined);
+    },
+    async listSubspecies(parentId: string | null): Promise<Species[]> {
+      const results = db.species
+        .filter((s) => s.parent_species_id === parentId)
+        .sort((a, b) => a.name.localeCompare(b.name));
+      return delay(results);
+    },
+  },
   dashboard: {
     async getMetrics(): Promise<DashboardMetrics> {
       const layersInUse = new Set<string>();
@@ -642,6 +758,7 @@ export const mockApi = {
       }
       const locationTypesInUse = new Set(db.locations.map((l) => l.location_type));
       const technologyCategoriesInUse = new Set(db.technologies.map((t) => t.category));
+      const speciesClassificationsInUse = new Set(db.species.map((s) => s.classification));
       return delay({
         characters_total: db.characters.length,
         characters_main: db.characters.filter((c) => c.role === "main").length,
@@ -660,6 +777,8 @@ export const mockApi = {
         location_types_in_use: locationTypesInUse.size,
         technologies_total: db.technologies.length,
         technology_categories_in_use: technologyCategoriesInUse.size,
+        species_total: db.species.length,
+        species_classifications_in_use: speciesClassificationsInUse.size,
       });
     },
   },

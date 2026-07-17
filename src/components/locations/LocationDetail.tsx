@@ -6,6 +6,7 @@ import { AutosaveField } from "../characters/AutosaveField";
 import { RevisionHistoryButton } from "../history/RevisionHistoryPanel";
 import { Button } from "../ui/Button";
 import { Select } from "../ui/Select";
+import { EntitySpeciesLinks } from "../species/EntitySpeciesLinks";
 import { EntityTechnologyLinks } from "../technology/EntityTechnologyLinks";
 import { LocationBreadcrumb } from "./LocationBreadcrumb";
 import { LocationRelations } from "./LocationRelations";
@@ -165,6 +166,10 @@ export function LocationDetail({ locationId, onSelect }: LocationDetailProps) {
 
       <Section title="Technology Installed">
         <EntityTechnologyLinks entityId={location.id} />
+      </Section>
+
+      <Section title="Native Species">
+        <EntitySpeciesLinks entityId={location.id} mode="habitat" />
       </Section>
     </div>
   );
