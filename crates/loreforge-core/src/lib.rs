@@ -13,6 +13,7 @@ pub mod events;
 pub mod locations;
 pub mod migrations;
 pub mod models;
+pub mod military;
 pub mod relationships;
 pub mod revisions;
 pub mod species;

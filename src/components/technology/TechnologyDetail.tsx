@@ -3,6 +3,7 @@ import type { TechnologyPatch } from "../../lib/types";
 import { TECHNOLOGY_CATEGORIES } from "../../lib/types";
 import { AutosaveField } from "../characters/AutosaveField";
 import { RevisionHistoryButton } from "../history/RevisionHistoryPanel";
+import { EntityMilitaryLinks } from "../military/EntityMilitaryLinks";
 import { Input } from "../ui/Input";
 import { Select } from "../ui/Select";
 import { TechnologyDependencies } from "./TechnologyDependencies";
@@ -105,6 +106,10 @@ export function TechnologyDetail({ technologyId }: TechnologyDetailProps) {
 
       <Section title="Used By">
         <TechnologyUsage technologyId={technology.id} />
+      </Section>
+
+      <Section title="Equipped Military Units">
+        <EntityMilitaryLinks entityId={technology.id} mode="equipment" />
       </Section>
     </div>
   );

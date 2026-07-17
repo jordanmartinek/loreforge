@@ -21,10 +21,14 @@ import type {
   Location,
   LocationFilter,
   LocationPatch,
+  MilitaryUnit,
+  MilitaryUnitFilter,
+  MilitaryUnitPatch,
   NewCanonEntry,
   NewCharacter,
   NewEvent,
   NewLocation,
+  NewMilitaryUnit,
   NewRelationship,
   NewSpecies,
   NewTechnology,
@@ -58,6 +62,7 @@ interface MockDb {
   locations: Location[];
   technologies: Technology[];
   species: Species[];
+  militaryUnits: MilitaryUnit[];
   // A shared, append-only revision log that every entity type below writes
   // to on create/update/delete -- mirrors the real backend's `revisions`
   // table (design-phase-3-canon.md section 3.1), so RevisionHistoryPanel
@@ -75,6 +80,7 @@ function seedDb(): MockDb {
     locations: [],
     technologies: [],
     species: [],
+    militaryUnits: [],
     revisions: [],
   };
 }
@@ -151,6 +157,28 @@ function wouldCreateSpeciesCycle(candidateId: string, newParentId: string): bool
   return false;
 }
 
+/** Mirrors military::would_create_cycle in loreforge-core: the third copy
+ * of this exact chain-walk shape (after wouldCreateLocationCycle and
+ * wouldCreateSpeciesCycle), per design-phase-7-military.md section 3.2 --
+ * chain of command is a strict tree, walking db.militaryUnits /
+ * parent_unit_id. */
+function wouldCreateMilitaryUnitCycle(candidateId: string, newParentId: string): boolean {
+  if (candidateId === newParentId) return true;
+
+  const seen = new Set<string>();
+  let currentId: string | null = newParentId;
+
+  while (currentId !== null) {
+    if (currentId === candidateId) return true;
+    if (seen.has(currentId)) break; // pre-existing cycle elsewhere; don't loop forever
+    seen.add(currentId);
+    const current = db.militaryUnits.find((u) => u.id === currentId);
+    currentId = current?.parent_unit_id ?? null;
+  }
+
+  return false;
+}
+
 let revisionCounter = 0;
 
 /** Appends a revision row, mirroring loreforge_core::revisions::record.
@@ -183,8 +211,9 @@ function loadDb(): MockDb {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       // Merge with seedDb() so a mock DB persisted before newer fields
-      // existed (e.g. `species`, added in Phase 6) doesn't crash with an
-      // undefined array -- same rationale as the original Phase 1/2 note.
+      // existed (e.g. `species`, added in Phase 6; `militaryUnits`, added
+      // in Phase 7) doesn't crash with an undefined array -- same
+      // rationale as the original Phase 1/2 note.
       return { ...seedDb(), ...(JSON.parse(raw) as Partial<MockDb>) };
     }
   } catch {
@@ -745,6 +774,94 @@ export const mockApi = {
       return delay(results);
     },
   },
+  military: {
+    async list(filter: MilitaryUnitFilter = {}): Promise<MilitaryUnit[]> {
+      let results = db.militaryUnits;
+      if (filter.search?.trim()) {
+        const q = filter.search.trim().toLowerCase();
+        results = results.filter((u) => u.name.toLowerCase().includes(q));
+      }
+      if (filter.branch) {
+        results = results.filter((u) => u.branch === filter.branch);
+      }
+      results = [...results].sort((a, b) => a.name.localeCompare(b.name));
+      return delay(results);
+    },
+    async get(id: string): Promise<MilitaryUnit> {
+      const found = db.militaryUnits.find((u) => u.id === id);
+      if (!found) throw new Error(`military unit ${id} not found`);
+      return delay(found);
+    },
+    async create(input: NewMilitaryUnit): Promise<MilitaryUnit> {
+      if (!input.name.trim()) throw new Error("military unit name is required");
+      if (input.parent_unit_id) {
+        const parentExists = db.militaryUnits.some((u) => u.id === input.parent_unit_id);
+        if (!parentExists) throw new Error(`parent unit ${input.parent_unit_id} not found`);
+      }
+      const unit: MilitaryUnit = {
+        id: uuid(),
+        name: input.name,
+        branch: input.branch ?? "other",
+        doctrine: input.doctrine ?? "",
+        parent_unit_id: input.parent_unit_id ?? null,
+        created_at: now(),
+        updated_at: now(),
+      };
+      db.militaryUnits.push(unit);
+      recordRevision(unit.id, "create", null, unit);
+      persist();
+      return delay(unit);
+    },
+    async update(id: string, patch: MilitaryUnitPatch): Promise<MilitaryUnit> {
+      const unit = db.militaryUnits.find((u) => u.id === id);
+      if (!unit) throw new Error(`military unit ${id} not found`);
+
+      if (patch.parent_unit_id !== undefined && patch.parent_unit_id !== null) {
+        const newParentId = patch.parent_unit_id;
+        const parentExists = db.militaryUnits.some((u) => u.id === newParentId);
+        if (!parentExists) throw new Error(`parent unit ${newParentId} not found`);
+        if (wouldCreateMilitaryUnitCycle(id, newParentId)) {
+          throw new Error(
+            "cannot set a unit's parent to itself or one of its own subordinate units",
+          );
+        }
+      }
+
+      const before = { ...unit };
+      Object.assign(unit, patch, { updated_at: now() });
+      recordRevision(id, "update", before, unit);
+      persist();
+      return delay(unit);
+    },
+    async delete(id: string): Promise<void> {
+      const before = db.militaryUnits.find((u) => u.id === id);
+      if (!before) return delay(undefined);
+
+      // Reparent direct subordinate units up one level (to the deleted
+      // unit's own parent, or to root) rather than orphaning/cascade
+      // -deleting the subtree -- mirrors military::delete in
+      // loreforge-core (FR3.1).
+      for (const child of db.militaryUnits) {
+        if (child.parent_unit_id === id) {
+          child.parent_unit_id = before.parent_unit_id;
+        }
+      }
+
+      db.militaryUnits = db.militaryUnits.filter((u) => u.id !== id);
+      db.relationships = db.relationships.filter(
+        (r) => r.source_entity_id !== id && r.target_entity_id !== id,
+      );
+      recordRevision(id, "delete", before, null);
+      persist();
+      return delay(undefined);
+    },
+    async listSubordinateUnits(parentId: string | null): Promise<MilitaryUnit[]> {
+      const results = db.militaryUnits
+        .filter((u) => u.parent_unit_id === parentId)
+        .sort((a, b) => a.name.localeCompare(b.name));
+      return delay(results);
+    },
+  },
   dashboard: {
     async getMetrics(): Promise<DashboardMetrics> {
       const layersInUse = new Set<string>();
@@ -759,6 +876,7 @@ export const mockApi = {
       const locationTypesInUse = new Set(db.locations.map((l) => l.location_type));
       const technologyCategoriesInUse = new Set(db.technologies.map((t) => t.category));
       const speciesClassificationsInUse = new Set(db.species.map((s) => s.classification));
+      const militaryBranchesInUse = new Set(db.militaryUnits.map((u) => u.branch));
       return delay({
         characters_total: db.characters.length,
         characters_main: db.characters.filter((c) => c.role === "main").length,
@@ -779,6 +897,8 @@ export const mockApi = {
         technology_categories_in_use: technologyCategoriesInUse.size,
         species_total: db.species.length,
         species_classifications_in_use: speciesClassificationsInUse.size,
+        military_units_total: db.militaryUnits.length,
+        military_branches_in_use: militaryBranchesInUse.size,
       });
     },
   },

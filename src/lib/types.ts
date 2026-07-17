@@ -117,6 +117,8 @@ export interface DashboardMetrics {
   technology_categories_in_use: number;
   species_total: number;
   species_classifications_in_use: number;
+  military_units_total: number;
+  military_branches_in_use: number;
 }
 
 export type SaveStatus = "saved" | "saving" | "offline";
@@ -457,4 +459,74 @@ export interface SpeciesPatch {
 export interface SpeciesFilter {
   search?: string;
   classification?: string;
+}
+
+// ---------------------------------------------------------------------
+// Phase 7: Military
+// ---------------------------------------------------------------------
+
+// A character serving in a military unit (source = character, target =
+// military unit).
+export const SERVES_IN = "serves_in";
+
+// A military unit stationed at a location (source = military unit,
+// target = location).
+export const STATIONED_AT = "stationed_at";
+
+// A military unit equipped with a technology (source = military unit,
+// target = technology).
+export const EQUIPPED_WITH = "equipped_with";
+
+export type MilitaryBranch =
+  | "army"
+  | "navy"
+  | "air_force"
+  | "space_force"
+  | "marines"
+  | "special_forces"
+  | "militia"
+  | "other";
+
+export const MILITARY_BRANCHES: MilitaryBranch[] = [
+  "army",
+  "navy",
+  "air_force",
+  "space_force",
+  "marines",
+  "special_forces",
+  "militia",
+  "other",
+];
+
+export interface MilitaryUnit {
+  id: string;
+  name: string;
+  branch: string;
+  doctrine: string;
+  parent_unit_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface NewMilitaryUnit {
+  name: string;
+  branch?: string;
+  doctrine?: string;
+  parent_unit_id?: string | null;
+}
+
+// parent_unit_id uses `string | null | undefined` to mirror the Rust
+// `Option<Option<String>>` "explicit null" pattern: `undefined` means
+// "don't touch the parent", `null` means "move to the top of the chain of
+// command" (same convention as SpeciesPatch.parent_species_id).
+export interface MilitaryUnitPatch {
+  name?: string;
+  branch?: string;
+  doctrine?: string;
+  parent_unit_id?: string | null;
+}
+
+export interface MilitaryUnitFilter {
+  search?: string;
+  branch?: string;
 }

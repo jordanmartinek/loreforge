@@ -2,12 +2,13 @@ use crate::state::AppState;
 use loreforge_core::models::{
     CanonEntry, CanonEntryPatch, CanonFilter, Character, CharacterFilter, CharacterPatch,
     DashboardMetrics, Event, EventFilter, EventPatch, Location, LocationFilter, LocationPatch,
-    NewCanonEntry, NewCharacter, NewEvent, NewLocation, NewRelationship, NewSpecies,
-    NewTechnology, Relationship, RelationshipPatch, RevisionEntry, Species, SpeciesFilter,
-    SpeciesPatch, Technology, TechnologyFilter, TechnologyPatch,
+    MilitaryUnit, MilitaryUnitFilter, MilitaryUnitPatch, NewCanonEntry, NewCharacter, NewEvent,
+    NewLocation, NewMilitaryUnit, NewRelationship, NewSpecies, NewTechnology, Relationship,
+    RelationshipPatch, RevisionEntry, Species, SpeciesFilter, SpeciesPatch, Technology,
+    TechnologyFilter, TechnologyPatch,
 };
 use loreforge_core::{
-    canon, characters, dashboard, events, locations, relationships, revisions, species,
+    canon, characters, dashboard, events, locations, military, relationships, revisions, species,
     technologies,
 };
 use tauri::State;
@@ -362,4 +363,53 @@ pub fn list_subspecies(
 ) -> Result<Vec<Species>, String> {
     let conn = state.conn.lock().map_err(|e| e.to_string())?;
     species::list_subspecies(&conn, parent_id.as_deref()).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn list_military_units(
+    state: State<AppState>,
+    filter: MilitaryUnitFilter,
+) -> Result<Vec<MilitaryUnit>, String> {
+    let conn = state.conn.lock().map_err(|e| e.to_string())?;
+    military::list(&conn, &filter).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn get_military_unit(state: State<AppState>, id: String) -> Result<MilitaryUnit, String> {
+    let conn = state.conn.lock().map_err(|e| e.to_string())?;
+    military::get(&conn, &id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn create_military_unit(
+    state: State<AppState>,
+    input: NewMilitaryUnit,
+) -> Result<MilitaryUnit, String> {
+    let conn = state.conn.lock().map_err(|e| e.to_string())?;
+    military::create(&conn, input).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn update_military_unit(
+    state: State<AppState>,
+    id: String,
+    patch: MilitaryUnitPatch,
+) -> Result<MilitaryUnit, String> {
+    let conn = state.conn.lock().map_err(|e| e.to_string())?;
+    military::update(&conn, &id, patch).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn delete_military_unit(state: State<AppState>, id: String) -> Result<(), String> {
+    let conn = state.conn.lock().map_err(|e| e.to_string())?;
+    military::delete(&conn, &id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn list_subordinate_units(
+    state: State<AppState>,
+    parent_id: Option<String>,
+) -> Result<Vec<MilitaryUnit>, String> {
+    let conn = state.conn.lock().map_err(|e| e.to_string())?;
+    military::list_subordinate_units(&conn, parent_id.as_deref()).map_err(|e| e.to_string())
 }

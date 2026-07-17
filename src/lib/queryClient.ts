@@ -56,6 +56,12 @@ export const queryKeys = {
     detail: (id: string) => ["species", "detail", id] as const,
     subspecies: (parentId: string | null) => ["species", "subspecies", parentId] as const,
   },
+  military: {
+    all: ["military"] as const,
+    list: (filter: unknown) => ["military", "list", filter] as const,
+    detail: (id: string) => ["military", "detail", id] as const,
+    subordinateUnits: (parentId: string | null) => ["military", "subordinateUnits", parentId] as const,
+  },
   dashboard: {
     metrics: ["dashboard", "metrics"] as const,
   },

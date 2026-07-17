@@ -4,8 +4,7 @@ import { useDashboardMetrics } from "../hooks/useDashboardMetrics";
 const COMING_SOON_CARDS = [
   { title: "Story Progress", icon: "◔" },
   { title: "Universe", icon: "✦" },
-  { title: "Ships", icon: "▲" },
-  { title: "Military", icon: "⚔" },
+  { title: "Ships", icon: "◆" },
   { title: "Politics", icon: "⚖" },
   { title: "Religions", icon: "☨" },
   { title: "Organizations", icon: "⬡" },
@@ -148,6 +147,20 @@ export function DashboardPage() {
               : [
                   { label: "Total", value: metrics?.species_total ?? 0 },
                   { label: "Classifications Used", value: metrics?.species_classifications_in_use ?? 0 },
+                ]
+          }
+        />
+
+        <MetricCard
+          title="Military"
+          icon="▲"
+          to="/military"
+          metrics={
+            isLoading
+              ? undefined
+              : [
+                  { label: "Total", value: metrics?.military_units_total ?? 0 },
+                  { label: "Branches Used", value: metrics?.military_branches_in_use ?? 0 },
                 ]
           }
         />
