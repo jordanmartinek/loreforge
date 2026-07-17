@@ -14,6 +14,7 @@ pub mod locations;
 pub mod migrations;
 pub mod models;
 pub mod military;
+pub mod politics;
 pub mod relationships;
 pub mod revisions;
 pub mod species;

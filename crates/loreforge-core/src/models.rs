@@ -174,6 +174,8 @@ pub struct DashboardMetrics {
     pub species_classifications_in_use: i64,
     pub military_units_total: i64,
     pub military_branches_in_use: i64,
+    pub political_entities_total: i64,
+    pub political_classifications_in_use: i64,
 }
 
 /// The relationship_type used to link a character to an event they
@@ -548,6 +550,84 @@ pub const MILITARY_BRANCHES: &[&str] = &[
     "militia",
     "other",
 ];
+
+// ---------------------------------------------------------------------
+// Phase 8: Politics
+// ---------------------------------------------------------------------
+
+/// A character leading a political entity (source = character entity id,
+/// target = political entity entity id).
+pub const LEADS: &str = "leads";
+
+/// A political entity controlling a location as territory (source =
+/// political entity entity id, target = location entity id).
+pub const CONTROLS: &str = "controls";
+
+/// A symmetric alliance between two political entities. Enforced
+/// symmetric (no duplicate in either direction, mutually exclusive with
+/// RIVAL_OF between the same pair) at the application layer in
+/// `politics.rs`, not by the schema -- see
+/// design-phase-8-politics.md section 1.1.
+pub const ALLIED_WITH: &str = "allied_with";
+
+/// A symmetric rivalry between two political entities. See ALLIED_WITH.
+pub const RIVAL_OF: &str = "rival_of";
+
+pub const POLITICAL_CLASSIFICATIONS: &[&str] = &[
+    "government",
+    "political_party",
+    "faction",
+    "alliance",
+    "guild",
+    "other",
+];
+
+/// Full political entity DTO: generic entity fields flattened together
+/// with political-entity-specific detail fields. Unlike Phase 4/6/7's
+/// hierarchical entity types, there is no self-referential parent column
+/// here (design-phase-8-politics.md section 1.2) -- this entity type is
+/// flat, closest in shape to Phase 3's `CanonEntry`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PoliticalEntity {
+    pub id: String,
+    pub name: String,
+    pub classification: String,
+    pub ideology: String,
+    pub founded_date: Option<String>,
+    pub date_precision: String,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct NewPoliticalEntity {
+    pub name: String,
+    pub classification: Option<String>,
+    pub ideology: Option<String>,
+    pub founded_date: Option<String>,
+    pub date_precision: Option<String>,
+}
+
+/// Patch payload for updating a political entity. `None` means "leave
+/// unchanged", mirroring every prior phase's per-field autosave contract.
+/// `founded_date` uses the `Option<Option<String>>` "explicit null"
+/// pattern (like `TechnologyPatch::introduced_date`) so a client can
+/// distinguish "don't touch the founding date" from "clear it" (set to
+/// `Some(None)`).
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct PoliticalEntityPatch {
+    pub name: Option<String>,
+    pub classification: Option<String>,
+    pub ideology: Option<String>,
+    pub founded_date: Option<Option<String>>,
+    pub date_precision: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct PoliticalEntityFilter {
+    pub search: Option<String>,
+    pub classification: Option<String>,
+}
 
 /// Full military unit DTO: generic entity fields flattened together with
 /// unit-specific detail fields, including the self-referential

@@ -62,6 +62,13 @@ export const queryKeys = {
     detail: (id: string) => ["military", "detail", id] as const,
     subordinateUnits: (parentId: string | null) => ["military", "subordinateUnits", parentId] as const,
   },
+  politics: {
+    all: ["politics"] as const,
+    list: (filter: unknown) => ["politics", "list", filter] as const,
+    detail: (id: string) => ["politics", "detail", id] as const,
+    allies: (id: string) => ["politics", "allies", id] as const,
+    rivals: (id: string) => ["politics", "rivals", id] as const,
+  },
   dashboard: {
     metrics: ["dashboard", "metrics"] as const,
   },

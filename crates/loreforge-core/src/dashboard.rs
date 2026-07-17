@@ -4,9 +4,10 @@ use crate::events;
 use crate::locations;
 use crate::military;
 use crate::models::{
-    CanonFilter, DashboardMetrics, EventFilter, LocationFilter, MilitaryUnitFilter, SpeciesFilter,
-    TechnologyFilter,
+    CanonFilter, DashboardMetrics, EventFilter, LocationFilter, MilitaryUnitFilter,
+    PoliticalEntityFilter, SpeciesFilter, TechnologyFilter,
 };
+use crate::politics;
 use crate::species;
 use crate::technologies;
 use rusqlite::Connection;
@@ -111,6 +112,12 @@ pub fn get_metrics(conn: &Connection) -> Result<DashboardMetrics> {
     let military_branches_seen: HashSet<String> =
         all_units.iter().map(|u| u.branch.clone()).collect();
 
+    // Politics metrics (Phase 8).
+    let all_political_entities = politics::list(conn, &PoliticalEntityFilter::default())?;
+    let political_entities_total = all_political_entities.len() as i64;
+    let political_classifications_seen: HashSet<String> =
+        all_political_entities.iter().map(|p| p.classification.clone()).collect();
+
     Ok(DashboardMetrics {
         characters_total,
         characters_main,
@@ -133,6 +140,8 @@ pub fn get_metrics(conn: &Connection) -> Result<DashboardMetrics> {
         species_classifications_in_use: species_classifications_seen.len() as i64,
         military_units_total,
         military_branches_in_use: military_branches_seen.len() as i64,
+        political_entities_total,
+        political_classifications_in_use: political_classifications_seen.len() as i64,
     })
 }
 
@@ -146,8 +155,9 @@ mod tests {
     use crate::military;
     use crate::models::{
         CharacterPatch, NewCanonEntry, NewCharacter, NewEvent, NewLocation, NewMilitaryUnit,
-        NewSpecies, NewTechnology,
+        NewPoliticalEntity, NewSpecies, NewTechnology,
     };
+    use crate::politics;
     use crate::species;
     use crate::technologies;
 
@@ -259,5 +269,17 @@ mod tests {
         let metrics = get_metrics(&conn).unwrap();
         assert_eq!(metrics.military_units_total, 3);
         assert_eq!(metrics.military_branches_in_use, 3);
+    }
+
+    #[test]
+    fn metrics_reflect_live_politics_data() {
+        let conn = db::open_in_memory().unwrap();
+        politics::create(&conn, NewPoliticalEntity { name: "Meridian Concord".into(), classification: Some("alliance".into()), ..Default::default() }).unwrap();
+        politics::create(&conn, NewPoliticalEntity { name: "Void Collective".into(), classification: Some("faction".into()), ..Default::default() }).unwrap();
+        politics::create(&conn, NewPoliticalEntity { name: "Ashgard Dominion".into(), classification: Some("government".into()), ..Default::default() }).unwrap();
+
+        let metrics = get_metrics(&conn).unwrap();
+        assert_eq!(metrics.political_entities_total, 3);
+        assert_eq!(metrics.political_classifications_in_use, 3);
     }
 }

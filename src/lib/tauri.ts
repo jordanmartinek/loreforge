@@ -26,9 +26,13 @@ import type {
   NewEvent,
   NewLocation,
   NewMilitaryUnit,
+  NewPoliticalEntity,
   NewRelationship,
   NewSpecies,
   NewTechnology,
+  PoliticalEntity,
+  PoliticalEntityFilter,
+  PoliticalEntityPatch,
   Relationship,
   RelationshipPatch,
   RevisionEntry,
@@ -138,6 +142,22 @@ export const api = {
     delete: (id: string) => invoke<void>("delete_military_unit", { id }),
     listSubordinateUnits: (parentId: string | null) =>
       invoke<MilitaryUnit[]>("list_subordinate_units", { parentId }),
+  },
+  politics: {
+    list: (filter: PoliticalEntityFilter = {}) =>
+      invoke<PoliticalEntity[]>("list_political_entities", { filter }),
+    get: (id: string) => invoke<PoliticalEntity>("get_political_entity", { id }),
+    create: (input: NewPoliticalEntity) =>
+      invoke<PoliticalEntity>("create_political_entity", { input }),
+    update: (id: string, patch: PoliticalEntityPatch) =>
+      invoke<PoliticalEntity>("update_political_entity", { id, patch }),
+    delete: (id: string) => invoke<void>("delete_political_entity", { id }),
+    createSymmetricEdge: (a: string, b: string, relationshipType: string) =>
+      invoke<Relationship>("create_symmetric_edge", { a, b, relationshipType }),
+    listAllies: (entityId: string) =>
+      invoke<PoliticalEntity[]>("list_political_allies", { entityId }),
+    listRivals: (entityId: string) =>
+      invoke<PoliticalEntity[]>("list_political_rivals", { entityId }),
   },
   dashboard: {
     getMetrics: () => invoke<DashboardMetrics>("get_dashboard_metrics"),

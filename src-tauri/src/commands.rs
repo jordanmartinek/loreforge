@@ -3,13 +3,14 @@ use loreforge_core::models::{
     CanonEntry, CanonEntryPatch, CanonFilter, Character, CharacterFilter, CharacterPatch,
     DashboardMetrics, Event, EventFilter, EventPatch, Location, LocationFilter, LocationPatch,
     MilitaryUnit, MilitaryUnitFilter, MilitaryUnitPatch, NewCanonEntry, NewCharacter, NewEvent,
-    NewLocation, NewMilitaryUnit, NewRelationship, NewSpecies, NewTechnology, Relationship,
+    NewLocation, NewMilitaryUnit, NewPoliticalEntity, NewRelationship, NewSpecies, NewTechnology,
+    PoliticalEntity, PoliticalEntityFilter, PoliticalEntityPatch, Relationship,
     RelationshipPatch, RevisionEntry, Species, SpeciesFilter, SpeciesPatch, Technology,
     TechnologyFilter, TechnologyPatch,
 };
 use loreforge_core::{
-    canon, characters, dashboard, events, locations, military, relationships, revisions, species,
-    technologies,
+    canon, characters, dashboard, events, locations, military, politics, relationships,
+    revisions, species, technologies,
 };
 use tauri::State;
 
@@ -412,4 +413,77 @@ pub fn list_subordinate_units(
 ) -> Result<Vec<MilitaryUnit>, String> {
     let conn = state.conn.lock().map_err(|e| e.to_string())?;
     military::list_subordinate_units(&conn, parent_id.as_deref()).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn list_political_entities(
+    state: State<AppState>,
+    filter: PoliticalEntityFilter,
+) -> Result<Vec<PoliticalEntity>, String> {
+    let conn = state.conn.lock().map_err(|e| e.to_string())?;
+    politics::list(&conn, &filter).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn get_political_entity(state: State<AppState>, id: String) -> Result<PoliticalEntity, String> {
+    let conn = state.conn.lock().map_err(|e| e.to_string())?;
+    politics::get(&conn, &id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn create_political_entity(
+    state: State<AppState>,
+    input: NewPoliticalEntity,
+) -> Result<PoliticalEntity, String> {
+    let conn = state.conn.lock().map_err(|e| e.to_string())?;
+    politics::create(&conn, input).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn update_political_entity(
+    state: State<AppState>,
+    id: String,
+    patch: PoliticalEntityPatch,
+) -> Result<PoliticalEntity, String> {
+    let conn = state.conn.lock().map_err(|e| e.to_string())?;
+    politics::update(&conn, &id, patch).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn delete_political_entity(state: State<AppState>, id: String) -> Result<(), String> {
+    let conn = state.conn.lock().map_err(|e| e.to_string())?;
+    politics::delete(&conn, &id).map_err(|e| e.to_string())
+}
+
+/// Covers both `allied_with` and `rival_of`: the `relationship_type`
+/// parameter selects which symmetric relationship to create, mirroring
+/// `politics::create_symmetric_edge`'s own signature
+/// (design-phase-8-politics.md section 1.1).
+#[tauri::command]
+pub fn create_symmetric_edge(
+    state: State<AppState>,
+    a: String,
+    b: String,
+    relationship_type: String,
+) -> Result<Relationship, String> {
+    let conn = state.conn.lock().map_err(|e| e.to_string())?;
+    politics::create_symmetric_edge(&conn, &a, &b, &relationship_type).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn list_political_allies(
+    state: State<AppState>,
+    entity_id: String,
+) -> Result<Vec<PoliticalEntity>, String> {
+    let conn = state.conn.lock().map_err(|e| e.to_string())?;
+    politics::list_allies(&conn, &entity_id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn list_political_rivals(
+    state: State<AppState>,
+    entity_id: String,
+) -> Result<Vec<PoliticalEntity>, String> {
+    let conn = state.conn.lock().map_err(|e| e.to_string())?;
+    politics::list_rivals(&conn, &entity_id).map_err(|e| e.to_string())
 }

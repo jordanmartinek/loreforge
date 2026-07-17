@@ -6,6 +6,7 @@ import { RelationshipEditor } from "./RelationshipEditor";
 import { RevisionHistoryButton } from "../history/RevisionHistoryPanel";
 import { EntityLocationLinks } from "../locations/EntityLocationLinks";
 import { EntityMilitaryLinks } from "../military/EntityMilitaryLinks";
+import { EntityPoliticsLinks } from "../politics/EntityPoliticsLinks";
 import { EntitySpeciesLinks } from "../species/EntitySpeciesLinks";
 import { EntityTechnologyLinks } from "../technology/EntityTechnologyLinks";
 import { Select } from "../ui/Select";
@@ -162,6 +163,10 @@ export function CharacterDetail({ characterId }: CharacterDetailProps) {
 
       <Section title="Military Service">
         <EntityMilitaryLinks entityId={character.id} mode="personnel" />
+      </Section>
+
+      <Section title="Political Leadership">
+        <EntityPoliticsLinks entityId={character.id} mode="leadership" />
       </Section>
     </div>
   );

@@ -29,9 +29,13 @@ import type {
   NewEvent,
   NewLocation,
   NewMilitaryUnit,
+  NewPoliticalEntity,
   NewRelationship,
   NewSpecies,
   NewTechnology,
+  PoliticalEntity,
+  PoliticalEntityFilter,
+  PoliticalEntityPatch,
   Relationship,
   RelationshipPatch,
   RevisionEntry,
@@ -42,7 +46,7 @@ import type {
   TechnologyFilter,
   TechnologyPatch,
 } from "./types";
-import { REQUIRES } from "./types";
+import { ALLIED_WITH, REQUIRES, RIVAL_OF } from "./types";
 
 function uuid(): string {
   return "id-" + Math.random().toString(36).slice(2) + Date.now().toString(36);
@@ -63,6 +67,7 @@ interface MockDb {
   technologies: Technology[];
   species: Species[];
   militaryUnits: MilitaryUnit[];
+  politicalEntities: PoliticalEntity[];
   // A shared, append-only revision log that every entity type below writes
   // to on create/update/delete -- mirrors the real backend's `revisions`
   // table (design-phase-3-canon.md section 3.1), so RevisionHistoryPanel
@@ -81,6 +86,7 @@ function seedDb(): MockDb {
     technologies: [],
     species: [],
     militaryUnits: [],
+    politicalEntities: [],
     revisions: [],
   };
 }
@@ -179,6 +185,24 @@ function wouldCreateMilitaryUnitCycle(candidateId: string, newParentId: string):
   return false;
 }
 
+/** Mirrors politics::find_edge_either_direction in loreforge-core:
+ * direction-agnostic lookup for an existing edge of `relationshipType`
+ * between `a` and `b` -- the piece that makes ALLIED_WITH/RIVAL_OF
+ * symmetric despite the underlying array always storing a source/target
+ * pair (design-phase-8-politics.md section 1.1, point 1). */
+function findSymmetricEdge(
+  a: string,
+  b: string,
+  relationshipType: string,
+): Relationship | undefined {
+  return db.relationships.find(
+    (r) =>
+      r.relationship_type === relationshipType &&
+      ((r.source_entity_id === a && r.target_entity_id === b) ||
+        (r.source_entity_id === b && r.target_entity_id === a)),
+  );
+}
+
 let revisionCounter = 0;
 
 /** Appends a revision row, mirroring loreforge_core::revisions::record.
@@ -212,8 +236,9 @@ function loadDb(): MockDb {
     if (raw) {
       // Merge with seedDb() so a mock DB persisted before newer fields
       // existed (e.g. `species`, added in Phase 6; `militaryUnits`, added
-      // in Phase 7) doesn't crash with an undefined array -- same
-      // rationale as the original Phase 1/2 note.
+      // in Phase 7; `politicalEntities`, added in Phase 8) doesn't crash
+      // with an undefined array -- same rationale as the original Phase
+      // 1/2 note.
       return { ...seedDb(), ...(JSON.parse(raw) as Partial<MockDb>) };
     }
   } catch {
@@ -249,6 +274,24 @@ function persist() {
 // something meaningful to show during development.
 function delay<T>(value: T, ms = 150): Promise<T> {
   return new Promise((resolve) => setTimeout(() => resolve(value), ms));
+}
+
+/** Direction-agnostic resolution of "the other side" of a symmetric
+ * relationship for `entityId` -- mirrors politics::list_symmetric_links
+ * in loreforge-core (design-phase-8-politics.md section 1.1, point 3). */
+function listSymmetricLinks(
+  entityId: string,
+  relationshipType: string,
+): Promise<PoliticalEntity[]> {
+  const links = db.relationships.filter(
+    (r) =>
+      r.relationship_type === relationshipType &&
+      (r.source_entity_id === entityId || r.target_entity_id === entityId),
+  );
+  const otherIds = links.map((r) =>
+    r.source_entity_id === entityId ? r.target_entity_id : r.source_entity_id,
+  );
+  return delay(db.politicalEntities.filter((p) => otherIds.includes(p.id)));
 }
 
 export const mockApi = {
@@ -862,6 +905,97 @@ export const mockApi = {
       return delay(results);
     },
   },
+  politics: {
+    async list(filter: PoliticalEntityFilter = {}): Promise<PoliticalEntity[]> {
+      let results = db.politicalEntities;
+      if (filter.search?.trim()) {
+        const q = filter.search.trim().toLowerCase();
+        results = results.filter((p) => p.name.toLowerCase().includes(q));
+      }
+      if (filter.classification) {
+        results = results.filter((p) => p.classification === filter.classification);
+      }
+      results = [...results].sort((a, b) => a.name.localeCompare(b.name));
+      return delay(results);
+    },
+    async get(id: string): Promise<PoliticalEntity> {
+      const found = db.politicalEntities.find((p) => p.id === id);
+      if (!found) throw new Error(`political entity ${id} not found`);
+      return delay(found);
+    },
+    async create(input: NewPoliticalEntity): Promise<PoliticalEntity> {
+      if (!input.name.trim()) throw new Error("political entity name is required");
+      const entity: PoliticalEntity = {
+        id: uuid(),
+        name: input.name,
+        classification: input.classification ?? "other",
+        ideology: input.ideology ?? "",
+        founded_date: input.founded_date ?? null,
+        date_precision: input.date_precision ?? "day",
+        created_at: now(),
+        updated_at: now(),
+      };
+      db.politicalEntities.push(entity);
+      recordRevision(entity.id, "create", null, entity);
+      persist();
+      return delay(entity);
+    },
+    async update(id: string, patch: PoliticalEntityPatch): Promise<PoliticalEntity> {
+      const entity = db.politicalEntities.find((p) => p.id === id);
+      if (!entity) throw new Error(`political entity ${id} not found`);
+      const before = { ...entity };
+      Object.assign(entity, patch, { updated_at: now() });
+      recordRevision(id, "update", before, entity);
+      persist();
+      return delay(entity);
+    },
+    async delete(id: string): Promise<void> {
+      const before = db.politicalEntities.find((p) => p.id === id);
+      db.politicalEntities = db.politicalEntities.filter((p) => p.id !== id);
+      db.relationships = db.relationships.filter(
+        (r) => r.source_entity_id !== id && r.target_entity_id !== id,
+      );
+      if (before) recordRevision(id, "delete", before, null);
+      persist();
+      return delay(undefined);
+    },
+    /** Mirrors politics::create_symmetric_edge in loreforge-core: rejects
+     * a self-link, a duplicate in either direction (same type), and a
+     * conflicting edge of the opposite symmetric type between the same
+     * pair, before delegating to the generic relationship create. */
+    async createSymmetricEdge(
+      a: string,
+      b: string,
+      relationshipType: string,
+    ): Promise<Relationship> {
+      if (a === b) {
+        throw new Error("a political entity cannot be its own ally or rival");
+      }
+      if (relationshipType !== ALLIED_WITH && relationshipType !== RIVAL_OF) {
+        throw new Error(`unsupported symmetric relationship type '${relationshipType}'`);
+      }
+      if (findSymmetricEdge(a, b, relationshipType)) {
+        throw new Error(`these political entities are already linked as ${relationshipType}`);
+      }
+      const opposite = relationshipType === ALLIED_WITH ? RIVAL_OF : ALLIED_WITH;
+      if (findSymmetricEdge(a, b, opposite)) {
+        throw new Error(
+          `these political entities are already linked as ${opposite}; a pair cannot be both allied and rivals`,
+        );
+      }
+      return mockApi.relationships.create({
+        source_entity_id: a,
+        target_entity_id: b,
+        relationship_type: relationshipType,
+      });
+    },
+    async listAllies(entityId: string): Promise<PoliticalEntity[]> {
+      return listSymmetricLinks(entityId, ALLIED_WITH);
+    },
+    async listRivals(entityId: string): Promise<PoliticalEntity[]> {
+      return listSymmetricLinks(entityId, RIVAL_OF);
+    },
+  },
   dashboard: {
     async getMetrics(): Promise<DashboardMetrics> {
       const layersInUse = new Set<string>();
@@ -877,6 +1011,7 @@ export const mockApi = {
       const technologyCategoriesInUse = new Set(db.technologies.map((t) => t.category));
       const speciesClassificationsInUse = new Set(db.species.map((s) => s.classification));
       const militaryBranchesInUse = new Set(db.militaryUnits.map((u) => u.branch));
+      const politicalClassificationsInUse = new Set(db.politicalEntities.map((p) => p.classification));
       return delay({
         characters_total: db.characters.length,
         characters_main: db.characters.filter((c) => c.role === "main").length,
@@ -899,6 +1034,8 @@ export const mockApi = {
         species_classifications_in_use: speciesClassificationsInUse.size,
         military_units_total: db.militaryUnits.length,
         military_branches_in_use: militaryBranchesInUse.size,
+        political_entities_total: db.politicalEntities.length,
+        political_classifications_in_use: politicalClassificationsInUse.size,
       });
     },
   },
