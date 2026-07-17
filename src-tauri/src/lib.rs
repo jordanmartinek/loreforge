@@ -67,6 +67,12 @@ pub fn run() {
       commands::list_technology_prerequisites,
       commands::list_technology_dependents,
       commands::create_requires_edge,
+      commands::list_species,
+      commands::get_species_entry,
+      commands::create_species,
+      commands::update_species,
+      commands::delete_species,
+      commands::list_subspecies,
     ])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");

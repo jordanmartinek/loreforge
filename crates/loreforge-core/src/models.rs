@@ -170,6 +170,8 @@ pub struct DashboardMetrics {
     pub location_types_in_use: i64,
     pub technologies_total: i64,
     pub technology_categories_in_use: i64,
+    pub species_total: i64,
+    pub species_classifications_in_use: i64,
 }
 
 /// The relationship_type used to link a character to an event they
@@ -447,4 +449,73 @@ pub struct TechnologyPatch {
 pub struct TechnologyFilter {
     pub search: Option<String>,
     pub category: Option<String>,
+}
+
+// ---------------------------------------------------------------------
+// Phase 6: Species Codex
+// ---------------------------------------------------------------------
+
+/// A character belonging to a species. Lives in the ordinary
+/// `relationships` table (source = character entity id, target = species
+/// entity id) -- no new join table, per design-phase-6-species.md
+/// section 1.
+pub const MEMBER_OF: &str = "member_of";
+
+/// A species originating from / commonly found at a location (source =
+/// species entity id, target = location entity id).
+pub const NATIVE_TO: &str = "native_to";
+
+pub const SPECIES_CLASSIFICATIONS: &[&str] = &[
+    "sentient_humanoid",
+    "sentient_non_humanoid",
+    "non_sentient_fauna",
+    "non_sentient_flora",
+    "synthetic",
+    "hybrid",
+    "other",
+];
+
+/// Full species DTO returned to the frontend: generic entity fields
+/// flattened together with species-specific detail fields, including the
+/// self-referential `parent_species_id` that makes taxonomy hierarchical
+/// -- the same structural shape as Phase 4's `Location.parent_location_id`,
+/// since biological taxonomy is a strict tree, not a graph like Phase 5's
+/// technology dependencies (design-phase-6-species.md section 1).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Species {
+    pub id: String,
+    pub name: String,
+    pub classification: String,
+    pub biology: String,
+    pub parent_species_id: Option<String>,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct NewSpecies {
+    pub name: String,
+    pub classification: Option<String>,
+    pub biology: Option<String>,
+    pub parent_species_id: Option<String>,
+}
+
+/// Patch payload for updating a species. `None` means "leave unchanged",
+/// mirroring every prior phase's per-field autosave contract.
+/// `parent_species_id` uses the `Option<Option<String>>` "explicit null"
+/// pattern (like `LocationPatch::parent_location_id`) so a client can
+/// distinguish "don't touch the parent" from "move this species to root"
+/// (set to `Some(None)`).
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct SpeciesPatch {
+    pub name: Option<String>,
+    pub classification: Option<String>,
+    pub biology: Option<String>,
+    pub parent_species_id: Option<Option<String>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct SpeciesFilter {
+    pub search: Option<String>,
+    pub classification: Option<String>,
 }

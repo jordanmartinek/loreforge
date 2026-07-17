@@ -50,6 +50,12 @@ export const queryKeys = {
     prerequisites: (id: string) => ["technologies", "prerequisites", id] as const,
     dependents: (id: string) => ["technologies", "dependents", id] as const,
   },
+  species: {
+    all: ["species"] as const,
+    list: (filter: unknown) => ["species", "list", filter] as const,
+    detail: (id: string) => ["species", "detail", id] as const,
+    subspecies: (parentId: string | null) => ["species", "subspecies", parentId] as const,
+  },
   dashboard: {
     metrics: ["dashboard", "metrics"] as const,
   },

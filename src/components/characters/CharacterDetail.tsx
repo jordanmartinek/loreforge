@@ -5,6 +5,7 @@ import { CharacterTimeline } from "./CharacterTimeline";
 import { RelationshipEditor } from "./RelationshipEditor";
 import { RevisionHistoryButton } from "../history/RevisionHistoryPanel";
 import { EntityLocationLinks } from "../locations/EntityLocationLinks";
+import { EntitySpeciesLinks } from "../species/EntitySpeciesLinks";
 import { EntityTechnologyLinks } from "../technology/EntityTechnologyLinks";
 import { Select } from "../ui/Select";
 
@@ -152,6 +153,10 @@ export function CharacterDetail({ characterId }: CharacterDetailProps) {
 
       <Section title="Technology Used">
         <EntityTechnologyLinks entityId={character.id} />
+      </Section>
+
+      <Section title="Species">
+        <EntitySpeciesLinks entityId={character.id} mode="member" />
       </Section>
     </div>
   );
