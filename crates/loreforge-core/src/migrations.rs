@@ -14,6 +14,7 @@ const MIGRATIONS: &[(&str, &str)] = &[
     ("0007_military", include_str!("../migrations/0007_military.sql")),
     ("0008_politics", include_str!("../migrations/0008_politics.sql")),
     ("0009_religions", include_str!("../migrations/0009_religions.sql")),
+    ("0010_organizations", include_str!("../migrations/0010_organizations.sql")),
 ];
 
 pub fn run(conn: &Connection) -> Result<()> {

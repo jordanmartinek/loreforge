@@ -26,11 +26,15 @@ import type {
   NewEvent,
   NewLocation,
   NewMilitaryUnit,
+  NewOrganization,
   NewPoliticalEntity,
   NewRelationship,
   NewSpecies,
   NewTechnology,
   NewReligion,
+  Organization,
+  OrganizationFilter,
+  OrganizationPatch,
   PoliticalEntity,
   PoliticalEntityFilter,
   PoliticalEntityPatch,
@@ -171,6 +175,21 @@ export const api = {
       invoke<Religion>("update_religion", { id, patch }),
     delete: (id: string) => invoke<void>("delete_religion", { id }),
     listSchisms: (parentId: string | null) => invoke<Religion[]>("list_schisms", { parentId }),
+  },
+  organizations: {
+    list: (filter: OrganizationFilter = {}) =>
+      invoke<Organization[]>("list_organizations", { filter }),
+    get: (id: string) => invoke<Organization>("get_organization", { id }),
+    create: (input: NewOrganization) => invoke<Organization>("create_organization", { input }),
+    update: (id: string, patch: OrganizationPatch) =>
+      invoke<Organization>("update_organization", { id, patch }),
+    delete: (id: string) => invoke<void>("delete_organization", { id }),
+    listSubsidiaries: (parentId: string | null) =>
+      invoke<Organization[]>("list_subsidiaries", { parentId }),
+    createSymmetricEdge: (a: string, b: string, relationshipType: string) =>
+      invoke<Relationship>("create_org_symmetric_edge", { a, b, relationshipType }),
+    listAllies: (entityId: string) => invoke<Organization[]>("list_org_allies", { entityId }),
+    listRivals: (entityId: string) => invoke<Organization[]>("list_org_rivals", { entityId }),
   },
   dashboard: {
     getMetrics: () => invoke<DashboardMetrics>("get_dashboard_metrics"),

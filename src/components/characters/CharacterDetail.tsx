@@ -6,6 +6,7 @@ import { RelationshipEditor } from "./RelationshipEditor";
 import { RevisionHistoryButton } from "../history/RevisionHistoryPanel";
 import { EntityLocationLinks } from "../locations/EntityLocationLinks";
 import { EntityMilitaryLinks } from "../military/EntityMilitaryLinks";
+import { EntityOrganizationLinks } from "../organizations/EntityOrganizationLinks";
 import { EntityPoliticsLinks } from "../politics/EntityPoliticsLinks";
 import { EntityReligionLinks } from "../religions/EntityReligionLinks";
 import { EntitySpeciesLinks } from "../species/EntitySpeciesLinks";
@@ -172,6 +173,10 @@ export function CharacterDetail({ characterId }: CharacterDetailProps) {
 
       <Section title="Religion">
         <EntityReligionLinks entityId={character.id} mode="follower" />
+      </Section>
+
+      <Section title="Organization">
+        <EntityOrganizationLinks entityId={character.id} mode="affiliation" />
       </Section>
     </div>
   );

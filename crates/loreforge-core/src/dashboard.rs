@@ -5,8 +5,9 @@ use crate::locations;
 use crate::military;
 use crate::models::{
     CanonFilter, DashboardMetrics, EventFilter, LocationFilter, MilitaryUnitFilter,
-    PoliticalEntityFilter, ReligionFilter, SpeciesFilter, TechnologyFilter,
+    OrganizationFilter, PoliticalEntityFilter, ReligionFilter, SpeciesFilter, TechnologyFilter,
 };
+use crate::organizations;
 use crate::politics;
 use crate::religions;
 use crate::species;
@@ -125,6 +126,12 @@ pub fn get_metrics(conn: &Connection) -> Result<DashboardMetrics> {
     let religion_classifications_seen: HashSet<String> =
         all_religions.iter().map(|r| r.classification.clone()).collect();
 
+    // Organizations metrics (Phase 10).
+    let all_organizations = organizations::list(conn, &OrganizationFilter::default())?;
+    let organizations_total = all_organizations.len() as i64;
+    let organization_classifications_seen: HashSet<String> =
+        all_organizations.iter().map(|o| o.classification.clone()).collect();
+
     Ok(DashboardMetrics {
         characters_total,
         characters_main,
@@ -151,6 +158,8 @@ pub fn get_metrics(conn: &Connection) -> Result<DashboardMetrics> {
         political_classifications_in_use: political_classifications_seen.len() as i64,
         religions_total,
         religion_classifications_in_use: religion_classifications_seen.len() as i64,
+        organizations_total,
+        organization_classifications_in_use: organization_classifications_seen.len() as i64,
     })
 }
 
@@ -164,8 +173,9 @@ mod tests {
     use crate::military;
     use crate::models::{
         CharacterPatch, NewCanonEntry, NewCharacter, NewEvent, NewLocation, NewMilitaryUnit,
-        NewPoliticalEntity, NewReligion, NewSpecies, NewTechnology,
+        NewOrganization, NewPoliticalEntity, NewReligion, NewSpecies, NewTechnology,
     };
+    use crate::organizations;
     use crate::politics;
     use crate::religions;
     use crate::species;
@@ -303,5 +313,17 @@ mod tests {
         let metrics = get_metrics(&conn).unwrap();
         assert_eq!(metrics.religions_total, 3);
         assert_eq!(metrics.religion_classifications_in_use, 3);
+    }
+
+    #[test]
+    fn metrics_reflect_live_organizations_data() {
+        let conn = db::open_in_memory().unwrap();
+        organizations::create(&conn, NewOrganization { name: "Ashenford Trading Guild".into(), classification: Some("guild".into()), ..Default::default() }).unwrap();
+        organizations::create(&conn, NewOrganization { name: "Void Runners".into(), classification: Some("syndicate".into()), ..Default::default() }).unwrap();
+        organizations::create(&conn, NewOrganization { name: "Ember Cartel".into(), classification: Some("criminal_enterprise".into()), ..Default::default() }).unwrap();
+
+        let metrics = get_metrics(&conn).unwrap();
+        assert_eq!(metrics.organizations_total, 3);
+        assert_eq!(metrics.organization_classifications_in_use, 3);
     }
 }

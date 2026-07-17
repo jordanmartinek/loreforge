@@ -178,6 +178,8 @@ pub struct DashboardMetrics {
     pub political_classifications_in_use: i64,
     pub religions_total: i64,
     pub religion_classifications_in_use: i64,
+    pub organizations_total: i64,
+    pub organization_classifications_in_use: i64,
 }
 
 /// The relationship_type used to link a character to an event they
@@ -604,6 +606,81 @@ pub const RELIGION_CLASSIFICATIONS: &[&str] = &[
     "pantheon_cult",
     "other",
 ];
+
+// ---------------------------------------------------------------------
+// Phase 10: Organizations
+// ---------------------------------------------------------------------
+
+/// A character affiliated with an organization (source = character entity
+/// id, target = organization entity id).
+pub const AFFILIATED_WITH: &str = "affiliated_with";
+
+/// An organization operating out of a location (source = organization
+/// entity id, target = location entity id).
+pub const OPERATES_AT: &str = "operates_at";
+
+/// A symmetric alliance between two organizations. Distinct from
+/// Politics' `ALLIED_WITH` even though the validation logic (in
+/// `symmetric.rs`) is shared -- two organizations being allied and two
+/// political entities being allied are different facts
+/// (design-phase-10-organizations.md section 1.3).
+pub const ORG_ALLIED_WITH: &str = "org_allied_with";
+
+/// A symmetric rivalry between two organizations. See `ORG_ALLIED_WITH`.
+pub const ORG_RIVAL_OF: &str = "org_rival_of";
+
+pub const ORGANIZATION_CLASSIFICATIONS: &[&str] = &[
+    "guild",
+    "corporation",
+    "syndicate",
+    "secret_society",
+    "trade_association",
+    "criminal_enterprise",
+    "other",
+];
+
+/// Full organization DTO: generic entity fields flattened together with
+/// organization-specific detail fields, including the self-referential
+/// `parent_organization_id` that makes chapter/subsidiary structure
+/// hierarchical -- the fifth entity type to use this shape after Phase
+/// 4/6/7/9's `parent_location_id`/`parent_species_id`/`parent_unit_id`/
+/// `parent_religion_id`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Organization {
+    pub id: String,
+    pub name: String,
+    pub classification: String,
+    pub charter: String,
+    pub parent_organization_id: Option<String>,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct NewOrganization {
+    pub name: String,
+    pub classification: Option<String>,
+    pub charter: Option<String>,
+    pub parent_organization_id: Option<String>,
+}
+
+/// Patch payload for updating an organization. `None` means "leave
+/// unchanged". `parent_organization_id` uses the `Option<Option<String>>`
+/// "explicit null" pattern (like `ReligionPatch::parent_religion_id`) so
+/// a client can distinguish "don't touch the parent" from "clear it".
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct OrganizationPatch {
+    pub name: Option<String>,
+    pub classification: Option<String>,
+    pub charter: Option<String>,
+    pub parent_organization_id: Option<Option<String>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct OrganizationFilter {
+    pub search: Option<String>,
+    pub classification: Option<String>,
+}
 
 /// Full religion DTO: generic entity fields flattened together with
 /// religion-specific detail fields, including the self-referential

@@ -7,6 +7,7 @@ import { RevisionHistoryButton } from "../history/RevisionHistoryPanel";
 import { Button } from "../ui/Button";
 import { Select } from "../ui/Select";
 import { EntityMilitaryLinks } from "../military/EntityMilitaryLinks";
+import { EntityOrganizationLinks } from "../organizations/EntityOrganizationLinks";
 import { EntityPoliticsLinks } from "../politics/EntityPoliticsLinks";
 import { EntityReligionLinks } from "../religions/EntityReligionLinks";
 import { EntitySpeciesLinks } from "../species/EntitySpeciesLinks";
@@ -185,6 +186,10 @@ export function LocationDetail({ locationId, onSelect }: LocationDetailProps) {
 
       <Section title="Holy Site For">
         <EntityReligionLinks entityId={location.id} mode="holySite" />
+      </Section>
+
+      <Section title="Organizations Operating Here">
+        <EntityOrganizationLinks entityId={location.id} mode="operatesAt" />
       </Section>
     </div>
   );

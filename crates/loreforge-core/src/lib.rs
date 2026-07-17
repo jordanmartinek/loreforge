@@ -15,11 +15,13 @@ pub mod migrations;
 pub mod models;
 pub mod hierarchy;
 pub mod military;
+pub mod organizations;
 pub mod politics;
 pub mod relationships;
 pub mod religions;
 pub mod revisions;
 pub mod species;
+pub mod symmetric;
 pub mod technologies;
 
 pub use error::{LoreError, Result};
