@@ -20,6 +20,7 @@ const NAV_ITEMS: NavItem[] = [
   { to: "/politics", label: "Politics", icon: "⚖" },
   { to: "/religions", label: "Religions", icon: "☨" },
   { to: "/organizations", label: "Organizations", icon: "⬡" },
+  { to: "/notes-import", label: "Import Notes", icon: "⇩" },
 ];
 
 export function Sidebar() {
@@ -55,7 +56,7 @@ export function Sidebar() {
       </nav>
 
       <div className="px-5 py-4 text-[11px] text-[var(--color-text-tertiary)]">
-        Phase 10 · Local-first
+        Phase 11 · Local-first
       </div>
     </aside>
   );
