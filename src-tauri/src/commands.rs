@@ -3,14 +3,14 @@ use loreforge_core::models::{
     CanonEntry, CanonEntryPatch, CanonFilter, Character, CharacterFilter, CharacterPatch,
     DashboardMetrics, Event, EventFilter, EventPatch, Location, LocationFilter, LocationPatch,
     MilitaryUnit, MilitaryUnitFilter, MilitaryUnitPatch, NewCanonEntry, NewCharacter, NewEvent,
-    NewLocation, NewMilitaryUnit, NewPoliticalEntity, NewRelationship, NewSpecies, NewTechnology,
-    PoliticalEntity, PoliticalEntityFilter, PoliticalEntityPatch, Relationship,
-    RelationshipPatch, RevisionEntry, Species, SpeciesFilter, SpeciesPatch, Technology,
-    TechnologyFilter, TechnologyPatch,
+    NewLocation, NewMilitaryUnit, NewPoliticalEntity, NewRelationship, NewReligion, NewSpecies,
+    NewTechnology, PoliticalEntity, PoliticalEntityFilter, PoliticalEntityPatch, Relationship,
+    RelationshipPatch, Religion, ReligionFilter, ReligionPatch, RevisionEntry, Species,
+    SpeciesFilter, SpeciesPatch, Technology, TechnologyFilter, TechnologyPatch,
 };
 use loreforge_core::{
     canon, characters, dashboard, events, locations, military, politics, relationships,
-    revisions, species, technologies,
+    religions, revisions, species, technologies,
 };
 use tauri::State;
 
@@ -486,4 +486,50 @@ pub fn list_political_rivals(
 ) -> Result<Vec<PoliticalEntity>, String> {
     let conn = state.conn.lock().map_err(|e| e.to_string())?;
     politics::list_rivals(&conn, &entity_id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn list_religions(
+    state: State<AppState>,
+    filter: ReligionFilter,
+) -> Result<Vec<Religion>, String> {
+    let conn = state.conn.lock().map_err(|e| e.to_string())?;
+    religions::list(&conn, &filter).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn get_religion(state: State<AppState>, id: String) -> Result<Religion, String> {
+    let conn = state.conn.lock().map_err(|e| e.to_string())?;
+    religions::get(&conn, &id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn create_religion(state: State<AppState>, input: NewReligion) -> Result<Religion, String> {
+    let conn = state.conn.lock().map_err(|e| e.to_string())?;
+    religions::create(&conn, input).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn update_religion(
+    state: State<AppState>,
+    id: String,
+    patch: ReligionPatch,
+) -> Result<Religion, String> {
+    let conn = state.conn.lock().map_err(|e| e.to_string())?;
+    religions::update(&conn, &id, patch).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn delete_religion(state: State<AppState>, id: String) -> Result<(), String> {
+    let conn = state.conn.lock().map_err(|e| e.to_string())?;
+    religions::delete(&conn, &id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn list_schisms(
+    state: State<AppState>,
+    parent_id: Option<String>,
+) -> Result<Vec<Religion>, String> {
+    let conn = state.conn.lock().map_err(|e| e.to_string())?;
+    religions::list_schisms(&conn, parent_id.as_deref()).map_err(|e| e.to_string())
 }

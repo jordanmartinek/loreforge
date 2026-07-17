@@ -5,9 +5,10 @@ use crate::locations;
 use crate::military;
 use crate::models::{
     CanonFilter, DashboardMetrics, EventFilter, LocationFilter, MilitaryUnitFilter,
-    PoliticalEntityFilter, SpeciesFilter, TechnologyFilter,
+    PoliticalEntityFilter, ReligionFilter, SpeciesFilter, TechnologyFilter,
 };
 use crate::politics;
+use crate::religions;
 use crate::species;
 use crate::technologies;
 use rusqlite::Connection;
@@ -118,6 +119,12 @@ pub fn get_metrics(conn: &Connection) -> Result<DashboardMetrics> {
     let political_classifications_seen: HashSet<String> =
         all_political_entities.iter().map(|p| p.classification.clone()).collect();
 
+    // Religions metrics (Phase 9).
+    let all_religions = religions::list(conn, &ReligionFilter::default())?;
+    let religions_total = all_religions.len() as i64;
+    let religion_classifications_seen: HashSet<String> =
+        all_religions.iter().map(|r| r.classification.clone()).collect();
+
     Ok(DashboardMetrics {
         characters_total,
         characters_main,
@@ -142,6 +149,8 @@ pub fn get_metrics(conn: &Connection) -> Result<DashboardMetrics> {
         military_branches_in_use: military_branches_seen.len() as i64,
         political_entities_total,
         political_classifications_in_use: political_classifications_seen.len() as i64,
+        religions_total,
+        religion_classifications_in_use: religion_classifications_seen.len() as i64,
     })
 }
 
@@ -155,9 +164,10 @@ mod tests {
     use crate::military;
     use crate::models::{
         CharacterPatch, NewCanonEntry, NewCharacter, NewEvent, NewLocation, NewMilitaryUnit,
-        NewPoliticalEntity, NewSpecies, NewTechnology,
+        NewPoliticalEntity, NewReligion, NewSpecies, NewTechnology,
     };
     use crate::politics;
+    use crate::religions;
     use crate::species;
     use crate::technologies;
 
@@ -281,5 +291,17 @@ mod tests {
         let metrics = get_metrics(&conn).unwrap();
         assert_eq!(metrics.political_entities_total, 3);
         assert_eq!(metrics.political_classifications_in_use, 3);
+    }
+
+    #[test]
+    fn metrics_reflect_live_religions_data() {
+        let conn = db::open_in_memory().unwrap();
+        religions::create(&conn, NewReligion { name: "Solari Faith".into(), classification: Some("organized_religion".into()), ..Default::default() }).unwrap();
+        religions::create(&conn, NewReligion { name: "Whisper Cult".into(), classification: Some("cult".into()), ..Default::default() }).unwrap();
+        religions::create(&conn, NewReligion { name: "Void Reckoning".into(), classification: Some("philosophy".into()), ..Default::default() }).unwrap();
+
+        let metrics = get_metrics(&conn).unwrap();
+        assert_eq!(metrics.religions_total, 3);
+        assert_eq!(metrics.religion_classifications_in_use, 3);
     }
 }

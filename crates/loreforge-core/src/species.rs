@@ -1,4 +1,5 @@
 use crate::error::{LoreError, Result};
+use crate::hierarchy;
 use crate::models::{NewSpecies, Species, SpeciesFilter, SpeciesPatch};
 use crate::revisions::{self, Action, RecordType};
 use chrono::Utc;
@@ -103,28 +104,15 @@ pub fn list(conn: &Connection, filter: &SpeciesFilter) -> Result<Vec<Species>> {
 /// Returns true if setting `candidate_id`'s parent to `new_parent_id` would
 /// make `candidate_id` its own ancestor -- i.e. `new_parent_id` is
 /// `candidate_id` itself, or one of `candidate_id`'s own descendants
-/// (FR1.3/FR3.3). Ported directly from `locations::would_create_cycle`:
-/// taxonomy is a single-parent chain, exactly like location hierarchy, so
-/// the same chain-walk (not Phase 5's graph-BFS) is the right check here.
+/// (FR1.3/FR3.3). Delegates to the shared single-parent-tree chain-walk in
+/// `hierarchy.rs` (extracted in Phase 9 -- see
+/// design-phase-9-religions.md section 1; this function previously had
+/// its own copy of the algorithm, ported directly from
+/// `locations::would_create_cycle`).
 pub fn would_create_cycle(conn: &Connection, candidate_id: &str, new_parent_id: &str) -> Result<bool> {
-    if candidate_id == new_parent_id {
-        return Ok(true);
-    }
-
-    let mut seen = std::collections::HashSet::new();
-    let mut current = Some(new_parent_id.to_string());
-
-    while let Some(id) = current {
-        if id == candidate_id {
-            return Ok(true);
-        }
-        if !seen.insert(id.clone()) {
-            break; // already-existing cycle elsewhere; don't loop forever
-        }
-        current = get(conn, &id).ok().and_then(|s| s.parent_species_id);
-    }
-
-    Ok(false)
+    Ok(hierarchy::would_create_cycle(candidate_id, new_parent_id, |id| {
+        get(conn, id).ok().and_then(|s| s.parent_species_id)
+    }))
 }
 
 pub fn create(conn: &Connection, input: NewSpecies) -> Result<Species> {

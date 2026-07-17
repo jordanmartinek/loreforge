@@ -8,6 +8,7 @@ import { Button } from "../ui/Button";
 import { Select } from "../ui/Select";
 import { EntityMilitaryLinks } from "../military/EntityMilitaryLinks";
 import { EntityPoliticsLinks } from "../politics/EntityPoliticsLinks";
+import { EntityReligionLinks } from "../religions/EntityReligionLinks";
 import { EntitySpeciesLinks } from "../species/EntitySpeciesLinks";
 import { EntityTechnologyLinks } from "../technology/EntityTechnologyLinks";
 import { LocationBreadcrumb } from "./LocationBreadcrumb";
@@ -180,6 +181,10 @@ export function LocationDetail({ locationId, onSelect }: LocationDetailProps) {
 
       <Section title="Controlled By">
         <EntityPoliticsLinks entityId={location.id} mode="territory" />
+      </Section>
+
+      <Section title="Holy Site For">
+        <EntityReligionLinks entityId={location.id} mode="holySite" />
       </Section>
     </div>
   );

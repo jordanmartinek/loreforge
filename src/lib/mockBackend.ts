@@ -31,6 +31,7 @@ import type {
   NewMilitaryUnit,
   NewPoliticalEntity,
   NewRelationship,
+  NewReligion,
   NewSpecies,
   NewTechnology,
   PoliticalEntity,
@@ -38,6 +39,9 @@ import type {
   PoliticalEntityPatch,
   Relationship,
   RelationshipPatch,
+  Religion,
+  ReligionFilter,
+  ReligionPatch,
   RevisionEntry,
   Species,
   SpeciesFilter,
@@ -68,6 +72,7 @@ interface MockDb {
   species: Species[];
   militaryUnits: MilitaryUnit[];
   politicalEntities: PoliticalEntity[];
+  religions: Religion[];
   // A shared, append-only revision log that every entity type below writes
   // to on create/update/delete -- mirrors the real backend's `revisions`
   // table (design-phase-3-canon.md section 3.1), so RevisionHistoryPanel
@@ -87,6 +92,7 @@ function seedDb(): MockDb {
     species: [],
     militaryUnits: [],
     politicalEntities: [],
+    religions: [],
     revisions: [],
   };
 }
@@ -185,6 +191,30 @@ function wouldCreateMilitaryUnitCycle(candidateId: string, newParentId: string):
   return false;
 }
 
+/** Mirrors religions::would_create_cycle in loreforge-core (which itself
+ * delegates to the shared hierarchy.rs helper as of Phase 9). This
+ * frontend mock layer has no equivalent Rust-side duplication to clean up
+ * -- wouldCreateLocationCycle/wouldCreateSpeciesCycle/
+ * wouldCreateMilitaryUnitCycle are three tiny standalone functions in
+ * this one file already, so this is simply a fourth, following the same
+ * shape (design-phase-9-religions.md section 4). */
+function wouldCreateReligionCycle(candidateId: string, newParentId: string): boolean {
+  if (candidateId === newParentId) return true;
+
+  const seen = new Set<string>();
+  let currentId: string | null = newParentId;
+
+  while (currentId !== null) {
+    if (currentId === candidateId) return true;
+    if (seen.has(currentId)) break; // pre-existing cycle elsewhere; don't loop forever
+    seen.add(currentId);
+    const current = db.religions.find((r) => r.id === currentId);
+    currentId = current?.parent_religion_id ?? null;
+  }
+
+  return false;
+}
+
 /** Mirrors politics::find_edge_either_direction in loreforge-core:
  * direction-agnostic lookup for an existing edge of `relationshipType`
  * between `a` and `b` -- the piece that makes ALLIED_WITH/RIVAL_OF
@@ -236,9 +266,9 @@ function loadDb(): MockDb {
     if (raw) {
       // Merge with seedDb() so a mock DB persisted before newer fields
       // existed (e.g. `species`, added in Phase 6; `militaryUnits`, added
-      // in Phase 7; `politicalEntities`, added in Phase 8) doesn't crash
-      // with an undefined array -- same rationale as the original Phase
-      // 1/2 note.
+      // in Phase 7; `politicalEntities`, added in Phase 8; `religions`,
+      // added in Phase 9) doesn't crash with an undefined array -- same
+      // rationale as the original Phase 1/2 note.
       return { ...seedDb(), ...(JSON.parse(raw) as Partial<MockDb>) };
     }
   } catch {
@@ -996,6 +1026,93 @@ export const mockApi = {
       return listSymmetricLinks(entityId, RIVAL_OF);
     },
   },
+  religions: {
+    async list(filter: ReligionFilter = {}): Promise<Religion[]> {
+      let results = db.religions;
+      if (filter.search?.trim()) {
+        const q = filter.search.trim().toLowerCase();
+        results = results.filter((r) => r.name.toLowerCase().includes(q));
+      }
+      if (filter.classification) {
+        results = results.filter((r) => r.classification === filter.classification);
+      }
+      results = [...results].sort((a, b) => a.name.localeCompare(b.name));
+      return delay(results);
+    },
+    async get(id: string): Promise<Religion> {
+      const found = db.religions.find((r) => r.id === id);
+      if (!found) throw new Error(`religion ${id} not found`);
+      return delay(found);
+    },
+    async create(input: NewReligion): Promise<Religion> {
+      if (!input.name.trim()) throw new Error("religion name is required");
+      if (input.parent_religion_id) {
+        const parentExists = db.religions.some((r) => r.id === input.parent_religion_id);
+        if (!parentExists) throw new Error(`parent religion ${input.parent_religion_id} not found`);
+      }
+      const religion: Religion = {
+        id: uuid(),
+        name: input.name,
+        classification: input.classification ?? "other",
+        tenets: input.tenets ?? "",
+        parent_religion_id: input.parent_religion_id ?? null,
+        created_at: now(),
+        updated_at: now(),
+      };
+      db.religions.push(religion);
+      recordRevision(religion.id, "create", null, religion);
+      persist();
+      return delay(religion);
+    },
+    async update(id: string, patch: ReligionPatch): Promise<Religion> {
+      const religion = db.religions.find((r) => r.id === id);
+      if (!religion) throw new Error(`religion ${id} not found`);
+
+      if (patch.parent_religion_id !== undefined && patch.parent_religion_id !== null) {
+        const newParentId = patch.parent_religion_id;
+        const parentExists = db.religions.some((r) => r.id === newParentId);
+        if (!parentExists) throw new Error(`parent religion ${newParentId} not found`);
+        if (wouldCreateReligionCycle(id, newParentId)) {
+          throw new Error(
+            "cannot set a religion's parent to itself or one of its own schisms",
+          );
+        }
+      }
+
+      const before = { ...religion };
+      Object.assign(religion, patch, { updated_at: now() });
+      recordRevision(id, "update", before, religion);
+      persist();
+      return delay(religion);
+    },
+    async delete(id: string): Promise<void> {
+      const before = db.religions.find((r) => r.id === id);
+      if (!before) return delay(undefined);
+
+      // Reparent direct schisms up one level (to the deleted religion's
+      // own parent, or to root) rather than orphaning/cascade-deleting the
+      // subtree -- mirrors religions::delete in loreforge-core (FR3.3).
+      for (const child of db.religions) {
+        if (child.parent_religion_id === id) {
+          child.parent_religion_id = before.parent_religion_id;
+        }
+      }
+
+      db.religions = db.religions.filter((r) => r.id !== id);
+      db.relationships = db.relationships.filter(
+        (r) => r.source_entity_id !== id && r.target_entity_id !== id,
+      );
+      recordRevision(id, "delete", before, null);
+      persist();
+      return delay(undefined);
+    },
+    async listSchisms(parentId: string | null): Promise<Religion[]> {
+      const results = db.religions
+        .filter((r) => r.parent_religion_id === parentId)
+        .sort((a, b) => a.name.localeCompare(b.name));
+      return delay(results);
+    },
+  },
   dashboard: {
     async getMetrics(): Promise<DashboardMetrics> {
       const layersInUse = new Set<string>();
@@ -1012,6 +1129,7 @@ export const mockApi = {
       const speciesClassificationsInUse = new Set(db.species.map((s) => s.classification));
       const militaryBranchesInUse = new Set(db.militaryUnits.map((u) => u.branch));
       const politicalClassificationsInUse = new Set(db.politicalEntities.map((p) => p.classification));
+      const religionClassificationsInUse = new Set(db.religions.map((r) => r.classification));
       return delay({
         characters_total: db.characters.length,
         characters_main: db.characters.filter((c) => c.role === "main").length,
@@ -1036,6 +1154,8 @@ export const mockApi = {
         military_branches_in_use: militaryBranchesInUse.size,
         political_entities_total: db.politicalEntities.length,
         political_classifications_in_use: politicalClassificationsInUse.size,
+        religions_total: db.religions.length,
+        religion_classifications_in_use: religionClassificationsInUse.size,
       });
     },
   },

@@ -87,6 +87,12 @@ pub fn run() {
       commands::create_symmetric_edge,
       commands::list_political_allies,
       commands::list_political_rivals,
+      commands::list_religions,
+      commands::get_religion,
+      commands::create_religion,
+      commands::update_religion,
+      commands::delete_religion,
+      commands::list_schisms,
     ])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");

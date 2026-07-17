@@ -7,6 +7,7 @@ import { RevisionHistoryButton } from "../history/RevisionHistoryPanel";
 import { EntityLocationLinks } from "../locations/EntityLocationLinks";
 import { EntityMilitaryLinks } from "../military/EntityMilitaryLinks";
 import { EntityPoliticsLinks } from "../politics/EntityPoliticsLinks";
+import { EntityReligionLinks } from "../religions/EntityReligionLinks";
 import { EntitySpeciesLinks } from "../species/EntitySpeciesLinks";
 import { EntityTechnologyLinks } from "../technology/EntityTechnologyLinks";
 import { Select } from "../ui/Select";
@@ -167,6 +168,10 @@ export function CharacterDetail({ characterId }: CharacterDetailProps) {
 
       <Section title="Political Leadership">
         <EntityPoliticsLinks entityId={character.id} mode="leadership" />
+      </Section>
+
+      <Section title="Religion">
+        <EntityReligionLinks entityId={character.id} mode="follower" />
       </Section>
     </div>
   );

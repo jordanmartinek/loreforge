@@ -30,11 +30,15 @@ import type {
   NewRelationship,
   NewSpecies,
   NewTechnology,
+  NewReligion,
   PoliticalEntity,
   PoliticalEntityFilter,
   PoliticalEntityPatch,
   Relationship,
   RelationshipPatch,
+  Religion,
+  ReligionFilter,
+  ReligionPatch,
   RevisionEntry,
   Species,
   SpeciesFilter,
@@ -158,6 +162,15 @@ export const api = {
       invoke<PoliticalEntity[]>("list_political_allies", { entityId }),
     listRivals: (entityId: string) =>
       invoke<PoliticalEntity[]>("list_political_rivals", { entityId }),
+  },
+  religions: {
+    list: (filter: ReligionFilter = {}) => invoke<Religion[]>("list_religions", { filter }),
+    get: (id: string) => invoke<Religion>("get_religion", { id }),
+    create: (input: NewReligion) => invoke<Religion>("create_religion", { input }),
+    update: (id: string, patch: ReligionPatch) =>
+      invoke<Religion>("update_religion", { id, patch }),
+    delete: (id: string) => invoke<void>("delete_religion", { id }),
+    listSchisms: (parentId: string | null) => invoke<Religion[]>("list_schisms", { parentId }),
   },
   dashboard: {
     getMetrics: () => invoke<DashboardMetrics>("get_dashboard_metrics"),
