@@ -2,8 +2,10 @@ use crate::canon;
 use crate::error::Result;
 use crate::events;
 use crate::locations;
+use crate::military;
 use crate::models::{
-    CanonFilter, DashboardMetrics, EventFilter, LocationFilter, SpeciesFilter, TechnologyFilter,
+    CanonFilter, DashboardMetrics, EventFilter, LocationFilter, MilitaryUnitFilter, SpeciesFilter,
+    TechnologyFilter,
 };
 use crate::species;
 use crate::technologies;
@@ -103,6 +105,12 @@ pub fn get_metrics(conn: &Connection) -> Result<DashboardMetrics> {
     let species_classifications_seen: HashSet<String> =
         all_species.iter().map(|s| s.classification.clone()).collect();
 
+    // Military metrics (Phase 7).
+    let all_units = military::list(conn, &MilitaryUnitFilter::default())?;
+    let military_units_total = all_units.len() as i64;
+    let military_branches_seen: HashSet<String> =
+        all_units.iter().map(|u| u.branch.clone()).collect();
+
     Ok(DashboardMetrics {
         characters_total,
         characters_main,
@@ -123,6 +131,8 @@ pub fn get_metrics(conn: &Connection) -> Result<DashboardMetrics> {
         technology_categories_in_use: technology_categories_seen.len() as i64,
         species_total,
         species_classifications_in_use: species_classifications_seen.len() as i64,
+        military_units_total,
+        military_branches_in_use: military_branches_seen.len() as i64,
     })
 }
 
@@ -133,8 +143,10 @@ mod tests {
     use crate::characters;
     use crate::db;
     use crate::locations;
+    use crate::military;
     use crate::models::{
-        CharacterPatch, NewCanonEntry, NewCharacter, NewEvent, NewLocation, NewSpecies, NewTechnology,
+        CharacterPatch, NewCanonEntry, NewCharacter, NewEvent, NewLocation, NewMilitaryUnit,
+        NewSpecies, NewTechnology,
     };
     use crate::species;
     use crate::technologies;
@@ -235,5 +247,17 @@ mod tests {
         let metrics = get_metrics(&conn).unwrap();
         assert_eq!(metrics.species_total, 3);
         assert_eq!(metrics.species_classifications_in_use, 3);
+    }
+
+    #[test]
+    fn metrics_reflect_live_military_data() {
+        let conn = db::open_in_memory().unwrap();
+        military::create(&conn, NewMilitaryUnit { name: "1st Battalion".into(), branch: Some("army".into()), ..Default::default() }).unwrap();
+        military::create(&conn, NewMilitaryUnit { name: "3rd Fleet".into(), branch: Some("navy".into()), ..Default::default() }).unwrap();
+        military::create(&conn, NewMilitaryUnit { name: "Shadow Cell".into(), branch: Some("special_forces".into()), ..Default::default() }).unwrap();
+
+        let metrics = get_metrics(&conn).unwrap();
+        assert_eq!(metrics.military_units_total, 3);
+        assert_eq!(metrics.military_branches_in_use, 3);
     }
 }

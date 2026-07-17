@@ -6,6 +6,7 @@ import { AutosaveField } from "../characters/AutosaveField";
 import { RevisionHistoryButton } from "../history/RevisionHistoryPanel";
 import { Button } from "../ui/Button";
 import { Select } from "../ui/Select";
+import { EntityMilitaryLinks } from "../military/EntityMilitaryLinks";
 import { EntitySpeciesLinks } from "../species/EntitySpeciesLinks";
 import { EntityTechnologyLinks } from "../technology/EntityTechnologyLinks";
 import { LocationBreadcrumb } from "./LocationBreadcrumb";
@@ -170,6 +171,10 @@ export function LocationDetail({ locationId, onSelect }: LocationDetailProps) {
 
       <Section title="Native Species">
         <EntitySpeciesLinks entityId={location.id} mode="habitat" />
+      </Section>
+
+      <Section title="Military Units Stationed Here">
+        <EntityMilitaryLinks entityId={location.id} mode="stationing" />
       </Section>
     </div>
   );

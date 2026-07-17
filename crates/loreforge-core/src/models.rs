@@ -172,6 +172,8 @@ pub struct DashboardMetrics {
     pub technology_categories_in_use: i64,
     pub species_total: i64,
     pub species_classifications_in_use: i64,
+    pub military_units_total: i64,
+    pub military_branches_in_use: i64,
 }
 
 /// The relationship_type used to link a character to an event they
@@ -518,4 +520,77 @@ pub struct SpeciesPatch {
 pub struct SpeciesFilter {
     pub search: Option<String>,
     pub classification: Option<String>,
+}
+
+// ---------------------------------------------------------------------
+// Phase 7: Military
+// ---------------------------------------------------------------------
+
+/// A character serving in a military unit (source = character entity id,
+/// target = military unit entity id).
+pub const SERVES_IN: &str = "serves_in";
+
+/// A military unit stationed at a location (source = military unit entity
+/// id, target = location entity id).
+pub const STATIONED_AT: &str = "stationed_at";
+
+/// A military unit equipped with a technology (source = military unit
+/// entity id, target = technology entity id).
+pub const EQUIPPED_WITH: &str = "equipped_with";
+
+pub const MILITARY_BRANCHES: &[&str] = &[
+    "army",
+    "navy",
+    "air_force",
+    "space_force",
+    "marines",
+    "special_forces",
+    "militia",
+    "other",
+];
+
+/// Full military unit DTO: generic entity fields flattened together with
+/// unit-specific detail fields, including the self-referential
+/// `parent_unit_id` that makes chain of command hierarchical -- the same
+/// structural shape as Phase 4's `Location.parent_location_id` and Phase
+/// 6's `Species.parent_species_id`, since a chain of command is a strict
+/// tree, not a graph like Phase 5's technology dependencies
+/// (design-phase-7-military.md section 1).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MilitaryUnit {
+    pub id: String,
+    pub name: String,
+    pub branch: String,
+    pub doctrine: String,
+    pub parent_unit_id: Option<String>,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct NewMilitaryUnit {
+    pub name: String,
+    pub branch: Option<String>,
+    pub doctrine: Option<String>,
+    pub parent_unit_id: Option<String>,
+}
+
+/// Patch payload for updating a military unit. `None` means "leave
+/// unchanged", mirroring every prior phase's per-field autosave contract.
+/// `parent_unit_id` uses the `Option<Option<String>>` "explicit null"
+/// pattern (like `SpeciesPatch::parent_species_id`) so a client can
+/// distinguish "don't touch the parent" from "move this unit to the top
+/// of the chain of command" (set to `Some(None)`).
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct MilitaryUnitPatch {
+    pub name: Option<String>,
+    pub branch: Option<String>,
+    pub doctrine: Option<String>,
+    pub parent_unit_id: Option<Option<String>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct MilitaryUnitFilter {
+    pub search: Option<String>,
+    pub branch: Option<String>,
 }

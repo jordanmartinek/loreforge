@@ -18,10 +18,14 @@ import type {
   Location,
   LocationFilter,
   LocationPatch,
+  MilitaryUnit,
+  MilitaryUnitFilter,
+  MilitaryUnitPatch,
   NewCanonEntry,
   NewCharacter,
   NewEvent,
   NewLocation,
+  NewMilitaryUnit,
   NewRelationship,
   NewSpecies,
   NewTechnology,
@@ -123,6 +127,17 @@ export const api = {
     delete: (id: string) => invoke<void>("delete_species", { id }),
     listSubspecies: (parentId: string | null) =>
       invoke<Species[]>("list_subspecies", { parentId }),
+  },
+  military: {
+    list: (filter: MilitaryUnitFilter = {}) =>
+      invoke<MilitaryUnit[]>("list_military_units", { filter }),
+    get: (id: string) => invoke<MilitaryUnit>("get_military_unit", { id }),
+    create: (input: NewMilitaryUnit) => invoke<MilitaryUnit>("create_military_unit", { input }),
+    update: (id: string, patch: MilitaryUnitPatch) =>
+      invoke<MilitaryUnit>("update_military_unit", { id, patch }),
+    delete: (id: string) => invoke<void>("delete_military_unit", { id }),
+    listSubordinateUnits: (parentId: string | null) =>
+      invoke<MilitaryUnit[]>("list_subordinate_units", { parentId }),
   },
   dashboard: {
     getMetrics: () => invoke<DashboardMetrics>("get_dashboard_metrics"),

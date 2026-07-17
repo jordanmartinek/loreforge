@@ -73,6 +73,12 @@ pub fn run() {
       commands::update_species,
       commands::delete_species,
       commands::list_subspecies,
+      commands::list_military_units,
+      commands::get_military_unit,
+      commands::create_military_unit,
+      commands::update_military_unit,
+      commands::delete_military_unit,
+      commands::list_subordinate_units,
     ])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");
