@@ -6,43 +6,16 @@
 // strictly offline-first through every prior phase) and why confidence is
 // a two-tier label rather than a numeric score (section 3).
 
-export type EntityTypeKey =
-  | "character"
-  | "location"
-  | "technology"
-  | "species"
-  | "military"
-  | "politics"
-  | "religion"
-  | "organization"
-  | "canon"
-  | "event";
+// EntityTypeKey/ENTITY_TYPE_KEYS/ENTITY_TYPE_LABELS moved to
+// lib/entityTypes.ts in Phase 12 (Universe Graph expansion), which needs
+// the same registry for its filter/legend UI. Re-exported here unchanged
+// so every existing import site in this feature (notes-import
+// components/hooks/tests) keeps working without a churny mass-rename.
+import type { EntityTypeKey } from "./entityTypes";
+import { ENTITY_TYPE_KEYS } from "./entityTypes";
 
-export const ENTITY_TYPE_KEYS: EntityTypeKey[] = [
-  "character",
-  "location",
-  "technology",
-  "species",
-  "military",
-  "politics",
-  "religion",
-  "organization",
-  "canon",
-  "event",
-];
-
-export const ENTITY_TYPE_LABELS: Record<EntityTypeKey, string> = {
-  character: "Character",
-  location: "Location",
-  technology: "Technology",
-  species: "Species",
-  military: "Military Unit",
-  politics: "Political Entity",
-  religion: "Religion",
-  organization: "Organization",
-  canon: "Canon Entry",
-  event: "Event",
-};
+export type { EntityTypeKey } from "./entityTypes";
+export { ENTITY_TYPE_KEYS, ENTITY_TYPE_LABELS } from "./entityTypes";
 
 export type ConfidenceTier = "structured" | "keyword";
 
