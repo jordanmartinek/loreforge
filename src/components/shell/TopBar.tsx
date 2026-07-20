@@ -10,7 +10,9 @@ export function TopBar({ title }: TopBarProps) {
   const theme = useUiStore((s) => s.theme);
   const toggleTheme = useUiStore((s) => s.toggleTheme);
 
-  const currentProject = useProjectStore((s) => s.currentProject());
+  const currentProject = useProjectStore((s) =>
+    s.projects.find((p) => p.id === s.currentProjectId),
+  );
   const closeProject = useProjectStore((s) => s.closeProject);
 
   return (
