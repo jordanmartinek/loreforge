@@ -3,23 +3,43 @@ import { useProjectStore } from "../store/projectStore";
 
 export function ProjectPickerPage() {
   const projects = useProjectStore((s) => s.projects);
+  const error = useProjectStore((s) => s.error);
   const createProject = useProjectStore((s) => s.createProject);
   const openProject = useProjectStore((s) => s.openProject);
   const deleteProject = useProjectStore((s) => s.deleteProject);
 
   const [newName, setNewName] = useState("");
   const [isCreating, setIsCreating] = useState(false);
+  const [pendingId, setPendingId] = useState<string | null>(null);
 
   const sorted = [...projects].sort(
-    (a, b) => new Date(b.lastOpenedAt).getTime() - new Date(a.lastOpenedAt).getTime(),
+    (a, b) => new Date(b.last_opened_at).getTime() - new Date(a.last_opened_at).getTime(),
   );
 
-  function handleCreate(e: React.FormEvent) {
+  async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
     if (!newName.trim()) return;
-    createProject(newName);
-    setNewName("");
-    setIsCreating(false);
+    setPendingId("__new__");
+    try {
+      await createProject(newName);
+      setNewName("");
+      setIsCreating(false);
+    } catch {
+      // error surfaced via store's `error` field
+    } finally {
+      setPendingId(null);
+    }
+  }
+
+  async function handleOpen(id: string) {
+    setPendingId(id);
+    try {
+      await openProject(id);
+    } catch {
+      // error surfaced via store's `error` field
+    } finally {
+      setPendingId(null);
+    }
   }
 
   return (
@@ -32,6 +52,10 @@ export function ProjectPickerPage() {
           Pick a project to continue, or start a new one.
         </p>
       </div>
+
+      {error && (
+        <p className="max-w-md text-center text-sm text-red-500">{error}</p>
+      )}
 
       <div className="w-full max-w-md space-y-3">
         {sorted.length === 0 && (
@@ -47,20 +71,27 @@ export function ProjectPickerPage() {
           >
             <button
               type="button"
-              onClick={() => openProject(project.id)}
-              className="flex-1 text-left"
+              onClick={() => handleOpen(project.id)}
+              disabled={pendingId !== null}
+              className="flex-1 text-left disabled:opacity-50"
             >
               <div className="font-medium text-[var(--color-text-primary)]">
                 {project.name}
+                {pendingId === project.id && (
+                  <span className="ml-2 text-xs text-[var(--color-text-secondary)]">
+                    Opening…
+                  </span>
+                )}
               </div>
               <div className="text-xs text-[var(--color-text-secondary)]">
-                Last opened {new Date(project.lastOpenedAt).toLocaleDateString()}
+                Last opened {new Date(project.last_opened_at).toLocaleDateString()}
               </div>
             </button>
             <button
               type="button"
               onClick={() => deleteProject(project.id)}
-              className="ml-3 text-xs text-[var(--color-text-secondary)] opacity-0 transition-opacity hover:text-red-500 group-hover:opacity-100"
+              disabled={pendingId !== null}
+              className="ml-3 text-xs text-[var(--color-text-secondary)] opacity-0 transition-opacity hover:text-red-500 group-hover:opacity-100 disabled:opacity-0"
               aria-label={`Delete ${project.name}`}
             >
               Remove
@@ -77,18 +108,21 @@ export function ProjectPickerPage() {
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
               placeholder="Universe name"
-              className="flex-1 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-0)] px-3 py-2 text-sm text-[var(--color-text-primary)]"
+              disabled={pendingId !== null}
+              className="flex-1 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-0)] px-3 py-2 text-sm text-[var(--color-text-primary)] disabled:opacity-50"
             />
             <button
               type="submit"
-              className="rounded-md bg-[var(--color-accent)] px-4 py-2 text-sm font-medium text-white hover:opacity-90"
+              disabled={pendingId !== null}
+              className="rounded-md bg-[var(--color-accent)] px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
             >
-              Create
+              {pendingId === "__new__" ? "Creating…" : "Create"}
             </button>
             <button
               type="button"
               onClick={() => setIsCreating(false)}
-              className="rounded-md px-3 py-2 text-sm text-[var(--color-text-secondary)]"
+              disabled={pendingId !== null}
+              className="rounded-md px-3 py-2 text-sm text-[var(--color-text-secondary)] disabled:opacity-50"
             >
               Cancel
             </button>
