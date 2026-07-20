@@ -12,10 +12,12 @@ import { MilitaryPage } from "./pages/MilitaryPage";
 import { NotesImportPage } from "./pages/NotesImportPage";
 import { OrganizationsPage } from "./pages/OrganizationsPage";
 import { PoliticsPage } from "./pages/PoliticsPage";
+import { ProjectPickerPage } from "./pages/ProjectPickerPage";
 import { ReligionsPage } from "./pages/ReligionsPage";
 import { SpeciesPage } from "./pages/SpeciesPage";
 import { TechnologyPage } from "./pages/TechnologyPage";
 import { TimelinePage } from "./pages/TimelinePage";
+import { useProjectStore } from "./store/projectStore";
 import { useUiStore } from "./store/uiStore";
 
 const TITLES: Record<string, string> = {
@@ -43,116 +45,121 @@ function useSyncThemeClass() {
 
 function App() {
   useSyncThemeClass();
+  const currentProjectId = useProjectStore((s) => s.currentProjectId);
 
   return (
     <QueryClientProvider client={queryClient}>
-      <Routes>
-        <Route
-          path="/"
-          element={
-            <AppShell title={TITLES["/"]}>
-              <DashboardPage />
-            </AppShell>
-          }
-        />
-        <Route
-          path="/characters"
-          element={
-            <AppShell title={TITLES["/characters"]}>
-              <CharactersPage />
-            </AppShell>
-          }
-        />
-        <Route
-          path="/graph"
-          element={
-            <AppShell title={TITLES["/graph"]}>
-              <GraphPage />
-            </AppShell>
-          }
-        />
-        <Route
-          path="/timeline"
-          element={
-            <AppShell title={TITLES["/timeline"]}>
-              <TimelinePage />
-            </AppShell>
-          }
-        />
-        <Route
-          path="/canon"
-          element={
-            <AppShell title={TITLES["/canon"]}>
-              <CanonPage />
-            </AppShell>
-          }
-        />
-        <Route
-          path="/locations"
-          element={
-            <AppShell title={TITLES["/locations"]}>
-              <LocationsPage />
-            </AppShell>
-          }
-        />
-        <Route
-          path="/technology"
-          element={
-            <AppShell title={TITLES["/technology"]}>
-              <TechnologyPage />
-            </AppShell>
-          }
-        />
-        <Route
-          path="/species"
-          element={
-            <AppShell title={TITLES["/species"]}>
-              <SpeciesPage />
-            </AppShell>
-          }
-        />
-        <Route
-          path="/military"
-          element={
-            <AppShell title={TITLES["/military"]}>
-              <MilitaryPage />
-            </AppShell>
-          }
-        />
-        <Route
-          path="/politics"
-          element={
-            <AppShell title={TITLES["/politics"]}>
-              <PoliticsPage />
-            </AppShell>
-          }
-        />
-        <Route
-          path="/religions"
-          element={
-            <AppShell title={TITLES["/religions"]}>
-              <ReligionsPage />
-            </AppShell>
-          }
-        />
-        <Route
-          path="/organizations"
-          element={
-            <AppShell title={TITLES["/organizations"]}>
-              <OrganizationsPage />
-            </AppShell>
-          }
-        />
-        <Route
-          path="/notes-import"
-          element={
-            <AppShell title={TITLES["/notes-import"]}>
-              <NotesImportPage />
-            </AppShell>
-          }
-        />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+      {currentProjectId === null ? (
+        <ProjectPickerPage />
+      ) : (
+        <Routes>
+          <Route
+            path="/"
+            element={
+              <AppShell title={TITLES["/"]}>
+                <DashboardPage />
+              </AppShell>
+            }
+          />
+          <Route
+            path="/characters"
+            element={
+              <AppShell title={TITLES["/characters"]}>
+                <CharactersPage />
+              </AppShell>
+            }
+          />
+          <Route
+            path="/graph"
+            element={
+              <AppShell title={TITLES["/graph"]}>
+                <GraphPage />
+              </AppShell>
+            }
+          />
+          <Route
+            path="/timeline"
+            element={
+              <AppShell title={TITLES["/timeline"]}>
+                <TimelinePage />
+              </AppShell>
+            }
+          />
+          <Route
+            path="/canon"
+            element={
+              <AppShell title={TITLES["/canon"]}>
+                <CanonPage />
+              </AppShell>
+            }
+          />
+          <Route
+            path="/locations"
+            element={
+              <AppShell title={TITLES["/locations"]}>
+                <LocationsPage />
+              </AppShell>
+            }
+          />
+          <Route
+            path="/technology"
+            element={
+              <AppShell title={TITLES["/technology"]}>
+                <TechnologyPage />
+              </AppShell>
+            }
+          />
+          <Route
+            path="/species"
+            element={
+              <AppShell title={TITLES["/species"]}>
+                <SpeciesPage />
+              </AppShell>
+            }
+          />
+          <Route
+            path="/military"
+            element={
+              <AppShell title={TITLES["/military"]}>
+                <MilitaryPage />
+              </AppShell>
+            }
+          />
+          <Route
+            path="/politics"
+            element={
+              <AppShell title={TITLES["/politics"]}>
+                <PoliticsPage />
+              </AppShell>
+            }
+          />
+          <Route
+            path="/religions"
+            element={
+              <AppShell title={TITLES["/religions"]}>
+                <ReligionsPage />
+              </AppShell>
+            }
+          />
+          <Route
+            path="/organizations"
+            element={
+              <AppShell title={TITLES["/organizations"]}>
+                <OrganizationsPage />
+              </AppShell>
+            }
+          />
+          <Route
+            path="/notes-import"
+            element={
+              <AppShell title={TITLES["/notes-import"]}>
+                <NotesImportPage />
+              </AppShell>
+            }
+          />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      )}
     </QueryClientProvider>
   );
 }
