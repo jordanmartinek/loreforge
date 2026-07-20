@@ -1,94 +1,114 @@
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
+import { api } from "../lib/api";
+import { queryClient } from "../lib/queryClient";
+import type { ProjectInfo } from "../lib/types";
 
-export interface Project {
-  id: string;
-  name: string;
-  /**
-   * Filesystem path to the project's data folder. Populated once the
-   * Tauri backend owns project storage; left undefined for
-   * browser-only/dev usage.
-   */
-  path?: string;
-  createdAt: string;
-  lastOpenedAt: string;
-}
+const LAST_PROJECT_KEY = "loreforge-last-project-id";
 
 interface ProjectState {
-  projects: Project[];
+  projects: ProjectInfo[];
   currentProjectId: string | null;
+  /** True while the initial project list / resume-last-project check is
+   * still running, so App.tsx can avoid flashing the picker before we know
+   * whether there's a project to resume. */
+  isInitializing: boolean;
+  error: string | null;
 
-  createProject: (name: string, path?: string) => Project;
-  openProject: (id: string) => void;
+  initialize: () => Promise<void>;
+  refreshProjects: () => Promise<void>;
+  createProject: (name: string) => Promise<void>;
+  openProject: (id: string) => Promise<void>;
+  renameProject: (id: string, name: string) => Promise<void>;
+  deleteProject: (id: string) => Promise<void>;
   closeProject: () => void;
-  renameProject: (id: string, name: string) => void;
-  deleteProject: (id: string) => void;
-
-  currentProject: () => Project | null;
 }
 
-function makeId() {
-  return typeof crypto !== "undefined" && "randomUUID" in crypto
-    ? crypto.randomUUID()
-    : `proj_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-}
+export const useProjectStore = create<ProjectState>((set, get) => ({
+  projects: [],
+  currentProjectId: null,
+  isInitializing: true,
+  error: null,
 
-export const useProjectStore = create<ProjectState>()(
-  persist(
-    (set, get) => ({
-      projects: [],
-      currentProjectId: null,
+  initialize: async () => {
+    try {
+      const projects = await api.projects.list();
+      set({ projects });
 
-      createProject: (name, path) => {
-        const now = new Date().toISOString();
-        const project: Project = {
-          id: makeId(),
-          name: name.trim() || "Untitled Universe",
-          path,
-          createdAt: now,
-          lastOpenedAt: now,
-        };
-        set((state) => ({
-          projects: [...state.projects, project],
-          currentProjectId: project.id,
-        }));
-        return project;
-      },
+      const lastId = localStorage.getItem(LAST_PROJECT_KEY);
+      const lastProject = lastId && projects.find((p) => p.id === lastId);
+      if (lastProject) {
+        // Re-establish the backend connection for the resumed project --
+        // the backend starts with a blank in-memory db every launch, it
+        // has no memory of which project was open last time.
+        await get().openProject(lastProject.id);
+      }
+    } catch (e) {
+      set({ error: e instanceof Error ? e.message : String(e) });
+    } finally {
+      set({ isInitializing: false });
+    }
+  },
 
-      openProject: (id) => {
-        set((state) => ({
-          currentProjectId: id,
-          projects: state.projects.map((p) =>
-            p.id === id ? { ...p, lastOpenedAt: new Date().toISOString() } : p,
-          ),
-        }));
-      },
+  refreshProjects: async () => {
+    const projects = await api.projects.list();
+    set({ projects });
+  },
 
-      closeProject: () => set({ currentProjectId: null }),
+  createProject: async (name) => {
+    set({ error: null });
+    try {
+      const project = await api.projects.create(name);
+      queryClient.clear();
+      localStorage.setItem(LAST_PROJECT_KEY, project.id);
+      set((state) => ({
+        projects: [...state.projects, project],
+        currentProjectId: project.id,
+      }));
+    } catch (e) {
+      set({ error: e instanceof Error ? e.message : String(e) });
+      throw e;
+    }
+  },
 
-      renameProject: (id, name) => {
-        set((state) => ({
-          projects: state.projects.map((p) =>
-            p.id === id ? { ...p, name: name.trim() || p.name } : p,
-          ),
-        }));
-      },
+  openProject: async (id) => {
+    set({ error: null });
+    try {
+      const project = await api.projects.open(id);
+      queryClient.clear();
+      localStorage.setItem(LAST_PROJECT_KEY, id);
+      set((state) => ({
+        currentProjectId: id,
+        projects: state.projects.map((p) => (p.id === id ? project : p)),
+      }));
+    } catch (e) {
+      set({ error: e instanceof Error ? e.message : String(e) });
+      throw e;
+    }
+  },
 
-      deleteProject: (id) => {
-        set((state) => ({
-          projects: state.projects.filter((p) => p.id !== id),
-          currentProjectId:
-            state.currentProjectId === id ? null : state.currentProjectId,
-        }));
-      },
+  renameProject: async (id, name) => {
+    const project = await api.projects.rename(id, name);
+    set((state) => ({
+      projects: state.projects.map((p) => (p.id === id ? project : p)),
+    }));
+  },
 
-      currentProject: () => {
-        const { projects, currentProjectId } = get();
-        return projects.find((p) => p.id === currentProjectId) ?? null;
-      },
-    }),
-    {
-      name: "loreforge-projects",
-    },
-  ),
-);
+  deleteProject: async (id) => {
+    await api.projects.delete(id);
+    set((state) => ({
+      projects: state.projects.filter((p) => p.id !== id),
+      currentProjectId:
+        state.currentProjectId === id ? null : state.currentProjectId,
+    }));
+    if (get().currentProjectId === null) {
+      localStorage.removeItem(LAST_PROJECT_KEY);
+      queryClient.clear();
+    }
+  },
+
+  closeProject: () => {
+    localStorage.removeItem(LAST_PROJECT_KEY);
+    queryClient.clear();
+    set({ currentProjectId: null });
+  },
+}));
