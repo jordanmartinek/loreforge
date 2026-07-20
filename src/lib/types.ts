@@ -743,3 +743,12 @@ export interface OrganizationFilter {
   search?: string;
   classification?: string;
 }
+
+// Mirrors loreforge_core::projects::ProjectInfo. One project = one on-disk
+// SQLite database; this is what the startup picker lists/creates/opens.
+export interface ProjectInfo {
+  id: string;
+  name: string;
+  created_at: string;
+  last_opened_at: string;
+}
