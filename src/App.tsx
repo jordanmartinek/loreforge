@@ -45,11 +45,26 @@ function useSyncThemeClass() {
 
 function App() {
   useSyncThemeClass();
+
   const currentProjectId = useProjectStore((s) => s.currentProjectId);
+  const isInitializing = useProjectStore((s) => s.isInitializing);
+  const initialize = useProjectStore((s) => s.initialize);
+
+  useEffect(() => {
+    initialize();
+    // Runs once on mount: lists known projects and, if one was open last
+    // session, re-opens it against the (freshly-started, blank) backend
+    // connection before rendering any data-dependent routes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <QueryClientProvider client={queryClient}>
-      {currentProjectId === null ? (
+      {isInitializing ? (
+        <div className="flex h-screen w-screen items-center justify-center bg-[var(--color-bg-0)] text-sm text-[var(--color-text-secondary)]">
+          Loading your projects…
+        </div>
+      ) : currentProjectId === null ? (
         <ProjectPickerPage />
       ) : (
         <Routes>
