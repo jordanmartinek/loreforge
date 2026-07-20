@@ -38,6 +38,7 @@ import type {
   PoliticalEntity,
   PoliticalEntityFilter,
   PoliticalEntityPatch,
+  ProjectInfo,
   Relationship,
   RelationshipPatch,
   Religion,
@@ -53,6 +54,14 @@ import type {
 } from "./types";
 
 export const api = {
+  projects: {
+    list: () => invoke<ProjectInfo[]>("list_projects"),
+    create: (name: string) => invoke<ProjectInfo>("create_project", { name }),
+    open: (id: string) => invoke<ProjectInfo>("open_project", { id }),
+    rename: (id: string, name: string) =>
+      invoke<ProjectInfo>("rename_project", { id, name }),
+    delete: (id: string) => invoke<void>("delete_project", { id }),
+  },
   characters: {
     list: (filter: CharacterFilter = {}) =>
       invoke<Character[]>("list_characters", { filter }),
