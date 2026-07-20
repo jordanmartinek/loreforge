@@ -23,17 +23,19 @@ export function ProjectPickerPage() {
   }
 
   return (
-    <div className="flex min-h-screen w-full flex-col items-center justify-center gap-8 bg-background px-6 py-12">
+    <div className="flex h-screen w-screen flex-col items-center justify-center gap-8 bg-[var(--color-bg-0)] px-6 py-12">
       <div className="text-center">
-        <h1 className="text-2xl font-semibold">Your Universes</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
+        <h1 className="text-2xl font-semibold text-[var(--color-text-primary)]">
+          Your Universes
+        </h1>
+        <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
           Pick a project to continue, or start a new one.
         </p>
       </div>
 
       <div className="w-full max-w-md space-y-3">
         {sorted.length === 0 && (
-          <p className="text-center text-sm text-muted-foreground">
+          <p className="text-center text-sm text-[var(--color-text-secondary)]">
             No projects yet — create your first one below.
           </p>
         )}
@@ -41,22 +43,24 @@ export function ProjectPickerPage() {
         {sorted.map((project) => (
           <div
             key={project.id}
-            className="group flex items-center justify-between rounded-lg border border-border bg-card px-4 py-3"
+            className="group flex items-center justify-between rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-bg-1)] px-4 py-3"
           >
             <button
               type="button"
               onClick={() => openProject(project.id)}
               className="flex-1 text-left"
             >
-              <div className="font-medium">{project.name}</div>
-              <div className="text-xs text-muted-foreground">
+              <div className="font-medium text-[var(--color-text-primary)]">
+                {project.name}
+              </div>
+              <div className="text-xs text-[var(--color-text-secondary)]">
                 Last opened {new Date(project.lastOpenedAt).toLocaleDateString()}
               </div>
             </button>
             <button
               type="button"
               onClick={() => deleteProject(project.id)}
-              className="ml-3 text-xs text-muted-foreground opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100"
+              className="ml-3 text-xs text-[var(--color-text-secondary)] opacity-0 transition-opacity hover:text-red-500 group-hover:opacity-100"
               aria-label={`Delete ${project.name}`}
             >
               Remove
@@ -73,18 +77,18 @@ export function ProjectPickerPage() {
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
               placeholder="Universe name"
-              className="flex-1 rounded-md border border-border bg-background px-3 py-2 text-sm"
+              className="flex-1 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-0)] px-3 py-2 text-sm text-[var(--color-text-primary)]"
             />
             <button
               type="submit"
-              className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
+              className="rounded-md bg-[var(--color-accent)] px-4 py-2 text-sm font-medium text-white hover:opacity-90"
             >
               Create
             </button>
             <button
               type="button"
               onClick={() => setIsCreating(false)}
-              className="rounded-md px-3 py-2 text-sm text-muted-foreground"
+              className="rounded-md px-3 py-2 text-sm text-[var(--color-text-secondary)]"
             >
               Cancel
             </button>
@@ -93,7 +97,7 @@ export function ProjectPickerPage() {
           <button
             type="button"
             onClick={() => setIsCreating(true)}
-            className="w-full rounded-md border border-dashed border-border px-4 py-3 text-sm font-medium text-muted-foreground hover:border-primary hover:text-primary"
+            className="w-full rounded-md border border-dashed border-[var(--color-border)] px-4 py-3 text-sm font-medium text-[var(--color-text-secondary)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)]"
           >
             + New Project
           </button>
