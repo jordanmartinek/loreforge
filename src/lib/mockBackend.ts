@@ -38,6 +38,7 @@ import type {
   Organization,
   OrganizationFilter,
   OrganizationPatch,
+  ProjectInfo,
   PoliticalEntity,
   PoliticalEntityFilter,
   PoliticalEntityPatch,
@@ -64,7 +65,16 @@ function now(): string {
   return new Date().toISOString();
 }
 
-const STORAGE_KEY = "loreforge-mock-db-v1";
+// Each mock "project" gets its own localStorage key for its dataset, so
+// switching projects in dev/browser mode actually swaps data instead of
+// sharing one global dataset -- mirrors the real backend giving each
+// project its own SQLite file.
+const DB_STORAGE_KEY_PREFIX = "loreforge-mock-db-v1:";
+const PROJECTS_STORAGE_KEY = "loreforge-mock-projects-v1";
+
+function dbStorageKey(projectId: string): string {
+  return `${DB_STORAGE_KEY_PREFIX}${projectId}`;
+}
 
 interface MockDb {
   characters: Character[];
@@ -290,9 +300,9 @@ function recordRevision(
   });
 }
 
-function loadDb(): MockDb {
+function loadDb(projectId: string): MockDb {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(dbStorageKey(projectId));
     if (raw) {
       // Merge with seedDb() so a mock DB persisted before newer fields
       // existed (e.g. `species`, added in Phase 6; `militaryUnits`, added
@@ -308,7 +318,11 @@ function loadDb(): MockDb {
   return seedDb();
 }
 
-let db: MockDb = loadDb();
+// No project is open until the picker opens/creates one (mirrors the real
+// backend's in-memory placeholder connection at startup). `db` stays a
+// throwaway empty dataset until then.
+let activeProjectId: string | null = null;
+let db: MockDb = seedDb();
 
 /** Test-only escape hatch: reset the in-memory mock database. Without this,
  * `db` (a module-scope singleton) would keep state across tests even after
@@ -316,16 +330,44 @@ let db: MockDb = loadDb();
  * module import time. */
 export function __resetMockDbForTests() {
   db = seedDb();
+  activeProjectId = null;
   try {
-    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(PROJECTS_STORAGE_KEY);
+    Object.keys(localStorage)
+      .filter((k) => k.startsWith(DB_STORAGE_KEY_PREFIX))
+      .forEach((k) => localStorage.removeItem(k));
   } catch {
     // ignore
   }
 }
 
 function persist() {
+  if (!activeProjectId) return;
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
+    localStorage.setItem(dbStorageKey(activeProjectId), JSON.stringify(db));
+  } catch {
+    // ignore quota errors in mock mode
+  }
+}
+
+// --- Mock project registry -------------------------------------------------
+// Mirrors loreforge_core::projects (list/create/open/rename/delete), backed
+// by its own localStorage key so it survives independently of any one
+// project's dataset.
+
+function loadProjectRegistry(): ProjectInfo[] {
+  try {
+    const raw = localStorage.getItem(PROJECTS_STORAGE_KEY);
+    if (raw) return JSON.parse(raw) as ProjectInfo[];
+  } catch {
+    // fall through
+  }
+  return [];
+}
+
+function saveProjectRegistry(projects: ProjectInfo[]) {
+  try {
+    localStorage.setItem(PROJECTS_STORAGE_KEY, JSON.stringify(projects));
   } catch {
     // ignore quota errors in mock mode
   }
@@ -393,6 +435,69 @@ async function createMockSymmetricEdge(
 }
 
 export const mockApi = {
+  projects: {
+    async list(): Promise<ProjectInfo[]> {
+      return delay(loadProjectRegistry());
+    },
+    async create(name: string): Promise<ProjectInfo> {
+      const trimmed = name.trim();
+      if (!trimmed) throw new Error("project name is required");
+
+      const ts = now();
+      const info: ProjectInfo = {
+        id: genId(),
+        name: trimmed,
+        created_at: ts,
+        last_opened_at: ts,
+      };
+      const projects = loadProjectRegistry();
+      projects.push(info);
+      saveProjectRegistry(projects);
+
+      activeProjectId = info.id;
+      db = loadDb(info.id);
+
+      return delay(info);
+    },
+    async open(id: string): Promise<ProjectInfo> {
+      const projects = loadProjectRegistry();
+      const project = projects.find((p) => p.id === id);
+      if (!project) throw new Error(`project ${id} not found`);
+      project.last_opened_at = now();
+      saveProjectRegistry(projects);
+
+      activeProjectId = id;
+      db = loadDb(id);
+
+      return delay(project);
+    },
+    async rename(id: string, name: string): Promise<ProjectInfo> {
+      const trimmed = name.trim();
+      if (!trimmed) throw new Error("project name is required");
+
+      const projects = loadProjectRegistry();
+      const project = projects.find((p) => p.id === id);
+      if (!project) throw new Error(`project ${id} not found`);
+      project.name = trimmed;
+      saveProjectRegistry(projects);
+
+      return delay(project);
+    },
+    async delete(id: string): Promise<void> {
+      const projects = loadProjectRegistry().filter((p) => p.id !== id);
+      saveProjectRegistry(projects);
+      try {
+        localStorage.removeItem(dbStorageKey(id));
+      } catch {
+        // ignore
+      }
+      if (activeProjectId === id) {
+        activeProjectId = null;
+        db = seedDb();
+      }
+      return delay(undefined);
+    },
+  },
   characters: {
     async list(filter: CharacterFilter = {}): Promise<Character[]> {
       let results = db.characters;
