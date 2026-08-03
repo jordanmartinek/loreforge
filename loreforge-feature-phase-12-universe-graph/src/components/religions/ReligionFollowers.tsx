@@ -1,0 +1,85 @@
+import { useState } from "react";
+import { useCharacters } from "../../hooks/useCharacters";
+import {
+  useCreateRelationship,
+  useDeleteRelationship,
+  useRelationshipsForEntity,
+} from "../../hooks/useRelationships";
+import { FOLLOWS } from "../../lib/types";
+import { Button } from "../ui/Button";
+import { Select } from "../ui/Select";
+
+interface ReligionFollowersProps {
+  religionId: string;
+}
+
+/** follows picker/list for characters (FR4.1/FR4.3) -- mirrors
+ * SpeciesMembers.tsx/UnitPersonnel.tsx/PoliticalLeadership.tsx's picker
+ * shape directly. */
+export function ReligionFollowers({ religionId }: ReligionFollowersProps) {
+  const { data: relationships = [] } = useRelationshipsForEntity(religionId);
+  const { data: allCharacters = [] } = useCharacters();
+  const createRelationship = useCreateRelationship();
+  const deleteRelationship = useDeleteRelationship();
+
+  const [target, setTarget] = useState("");
+
+  const followerLinks = relationships.filter(
+    (r) => r.relationship_type === FOLLOWS && r.target_entity_id === religionId,
+  );
+  const linkedCharacterIds = new Set(followerLinks.map((r) => r.source_entity_id));
+  const characterById = new Map(allCharacters.map((c) => [c.id, c]));
+  const candidates = allCharacters.filter((c) => !linkedCharacterIds.has(c.id));
+
+  const handleAdd = () => {
+    if (!target) return;
+    createRelationship.mutate({
+      source_entity_id: target,
+      target_entity_id: religionId,
+      relationship_type: FOLLOWS,
+    });
+    setTarget("");
+  };
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex items-center gap-2">
+        <Select value={target} onChange={(e) => setTarget(e.target.value)} className="flex-1">
+          <option value="">Add a follower…</option>
+          {candidates.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.name}
+            </option>
+          ))}
+        </Select>
+        <Button variant="primary" onClick={handleAdd} disabled={!target || createRelationship.isPending}>
+          Link
+        </Button>
+      </div>
+
+      {followerLinks.length === 0 ? (
+        <p className="text-xs text-[var(--color-text-tertiary)]">No followers recorded yet.</p>
+      ) : (
+        <ul className="flex flex-col gap-1.5">
+          {followerLinks.map((rel) => (
+            <li
+              key={rel.id}
+              className="flex items-center justify-between rounded-md border border-[var(--color-border-subtle)] bg-[var(--color-bg-2)] px-3 py-2 text-sm"
+            >
+              <span className="font-medium text-[var(--color-text-primary)]">
+                {characterById.get(rel.source_entity_id)?.name ?? "Unknown"}
+              </span>
+              <button
+                onClick={() => deleteRelationship.mutate(rel.id)}
+                className="text-xs text-[var(--color-text-tertiary)] hover:text-[var(--color-danger)]"
+                aria-label="Remove follower"
+              >
+                ✕
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
